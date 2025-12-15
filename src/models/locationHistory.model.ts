@@ -6,7 +6,17 @@ export interface ILocationHistory extends Document {
   coordinates: [number, number];
   accuracy: number;
   batteryLevel?: number;
+  address?: string; 
+  enrichedData?: { 
+    formattedAddress?: string;
+    city?: string;
+    neighborhood?: string;
+    placeId?: string;
+    staticMapUrl?: string;
+  };
   timestamp: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const LocationHistorySchema: Schema = new Schema({
@@ -35,6 +45,16 @@ const LocationHistorySchema: Schema = new Schema({
     min: 0,
     max: 100,
   },
+  address: {
+    type: String,
+  },
+  enrichedData: {
+    formattedAddress: String,
+    city: String,
+    neighborhood: String,
+    placeId: String,
+    staticMapUrl: String,
+  },
   timestamp: {
     type: Date,
     default: Date.now,
@@ -44,7 +64,6 @@ const LocationHistorySchema: Schema = new Schema({
   timestamps: true,
 });
 
-// Compound indexes for efficient queries
 LocationHistorySchema.index({ userId: 1, timestamp: -1 });
 LocationHistorySchema.index({ alertId: 1, timestamp: 1 });
 
