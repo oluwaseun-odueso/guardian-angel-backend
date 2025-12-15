@@ -50,7 +50,11 @@ export class AlertService {
       const alert = new Alert({
         userId: data.userId,
         type: data.type,
-        location: data.location,
+        location: {
+          type: 'Point',
+          coordinates: data.location.coordinates,
+          accuracy: data.location.accuracy,
+        },
         fallDetectionData: data.fallDetectionData,
         status: 'active',
       });
