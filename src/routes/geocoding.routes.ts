@@ -6,10 +6,8 @@ const router = Router();
 
 router.use(authenticate);
 
-// Geocode address to coordinates
 router.post('/', GeocodingController.geocodeAddress);
 
-// Reverse geocode coordinates to address
 router.post('/reverse-geocode', GeocodingController.reverseGeocode);
 
 // Calculate distance between two points
