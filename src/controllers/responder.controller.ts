@@ -10,7 +10,6 @@ export class ResponderController {
       if (!req.user) {
         return ResponseHandler.error(res, 'User not authenticated', 401);
       }
-      // Update user role first
       const User = await import('../models/user.model');
       await User.default.findByIdAndUpdate(req.user._id, { role: 'responder' });
       
