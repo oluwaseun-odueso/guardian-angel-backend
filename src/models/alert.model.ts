@@ -5,10 +5,30 @@ export interface IAlert extends Document {
   status: 'active' | 'acknowledged' | 'resolved' | 'cancelled';
   type: 'panic' | 'fall-detection' | 'timer-expired';
   location: {
-    type: 'Point';
-    coordinates: [number, number];
-    accuracy: number;
-  };
+    coordinates: {
+      type: [Number],
+      required: true,
+    },
+    accuracy: {
+      type: Number,
+      required: true,
+    },
+    address: {
+      formatted: String,
+      street: String,
+      city: String,
+      state: String,
+      country: String,
+      postalCode: String,
+    },
+    placeId: String,
+    staticMapUrl: String, // For quick visualization
+  },
+  // location: {
+  //   type: 'Point';
+  //   coordinates: [number, number];
+  //   accuracy: number;
+  // };
   audioRecordingUrl?: string;
   photoUrl?: string;
   fallDetectionData?: {
