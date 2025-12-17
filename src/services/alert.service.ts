@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import Alert, { IAlert } from '../models/alert.model';
 import User from '../models/user.model';
 import ResponderAvailability from '../models/responderAvailability.model';
+import GeocodingService from './geocoding.service';
+import LocationService from './location.service';
 import config from '../config/env';
 import logger from '../utils/logger';
 import NotificationService from './notification.service';
@@ -16,6 +18,11 @@ export interface CreateAlertData {
   fallDetectionData?: {
     acceleration: number;
     timestamp: Date;
+  };
+  deviceInfo?: {
+    batteryLevel?: number;
+    osVersion?: string;
+    appVersion?: string;
   };
 }
 
