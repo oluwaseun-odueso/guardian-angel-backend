@@ -29,7 +29,7 @@ export class GeocodingController {
   static async reverseGeocode(req: AuthRequest, res: Response): Promise<Response> {
     try {
       const { latitude, longitude } = req.body;
-      
+      console.log("Latitude:", req.body.latitude)
       if (!latitude || !longitude) {
         return ResponseHandler.error(res, 'Latitude and Longitude are required', 400);
       }
@@ -49,8 +49,13 @@ export class GeocodingController {
 
   static async calculateDistance(req: AuthRequest, res: Response): Promise<Response> {
     try {
+      if (!req.body || typeof req.body !== 'object') {
+        return ResponseHandler.error(res, 'Invalid request body', 400);
+      }
+
       const { point1, point2, unit = 'km' } = req.body;
-      
+      console.log("Request Body:", req.body)
+      console.log("Point1:", req.body.point1)
       if (!point1 || !point2 || !point1.latitude || !point1.longitude || !point2.latitude || !point2.longitude) {
         return ResponseHandler.error(res, 'Valid coordinates are required', 400);
       }
