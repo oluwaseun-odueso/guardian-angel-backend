@@ -3,50 +3,48 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IAlert extends Document {
   userId: mongoose.Types.ObjectId;
   status: 'active' | 'acknowledged' | 'resolved' | 'cancelled';
-  type: 'panic' | 'fall-detection' | 'timer-expired';
+  type: 'manual' | 'panic' | 'fall-detection';
   location: {
-    coordinates: {
-      type: [Number],
-      required: true,
-    },
-    accuracy: {
-      type: Number,
-      required: true,
-    },
-    address: {
-      formatted: String,
-      street: String,
-      city: String,
-      state: String,
-      country: String,
-      postalCode: String,
-    },
-    placeId: String,
-    staticMapUrl: String, // For quick visualization
-  },
-  // location: {
-  //   type: 'Point';
-  //   coordinates: [number, number];
-  //   accuracy: number;
-  // };
-  audioRecordingUrl?: string;
-  photoUrl?: string;
-  fallDetectionData?: {
-    acceleration: number;
-    timestamp: Date;
+    type: 'Point';
+    coordinates: [number, number]; // [lng, lat]
+    accuracy: number;
+    address?: string;
+    geocodedData?: {
+      formattedAddress: string;
+      street?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      postalCode?: string;
+      neighborhood?: string;
+      placeId?: string;
+    };
+    staticMapUrl?: string;
   };
-  assignedResponders: Array<{
+  assignedResponder?: {
     responderId: mongoose.Types.ObjectId;
     assignedAt: Date;
     status: 'assigned' | 'enroute' | 'on-scene';
+    acknowledgedAt?: Date;
+    cancelledAt?: Date;
     arrivedAt?: Date;
-  }>;
-  messages: Array<{
-    senderId: mongoose.Types.ObjectId;
-    content: string;
-    timestamp: Date;
-    type: 'text' | 'system';
-  }>;
+    estimatedDistance?: number; // km
+    routeInfo?: {
+      distance: { text: string; value: number };
+      duration: { text: string; value: number };
+      estimatedArrival: Date;
+    };
+  };
+  tracking: {
+    lastUserLocation?: [number, number];
+    lastResponderLocation?: [number, number];
+    lastUpdated: Date;
+  };
+  deviceInfo?: {
+    batteryLevel?: number;
+    osVersion?: string;
+    appVersion?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
   resolvedAt?: Date;
@@ -67,7 +65,7 @@ const AlertSchema: Schema = new Schema({
   },
   type: {
     type: String,
-    enum: ['panic', 'fall-detection', 'timer-expired'],
+    enum: ['manual', 'panic', 'fall-detection'],
     required: true,
   },
   location: {
@@ -84,63 +82,60 @@ const AlertSchema: Schema = new Schema({
       type: Number,
       required: true,
     },
-  },
-  audioRecordingUrl: {
-    type: String,
-  },
-  photoUrl: {
-    type: String,
-  },
-  fallDetectionData: {
-    acceleration: {
-      type: Number,
+    address: String,
+    geocodedData: {
+      formattedAddress: String,
+      street: String,
+      city: String,
+      state: String,
+      country: String,
+      postalCode: String,
+      neighborhood: String,
+      placeId: String,
     },
-    timestamp: {
-      type: Date,
-    },
+    staticMapUrl: String,
   },
-  assignedResponders: [{
+  assignedResponder: {
     responderId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
     },
-    assignedAt: {
-      type: Date,
-      default: Date.now,
-    },
+    assignedAt: Date,
     status: {
       type: String,
       enum: ['assigned', 'enroute', 'on-scene'],
       default: 'assigned',
     },
-    arrivedAt: {
-      type: Date,
+    acknowledgedAt: Date,
+    cancelledAt: Date,
+    arrivedAt: Date,
+    estimatedDistance: Number,
+    routeInfo: {
+      distance: {
+        text: String,
+        value: Number,
+      },
+      duration: {
+        text: String,
+        value: Number,
+      },
+      estimatedArrival: Date,
     },
-  }],
-  messages: [{
-    senderId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    content: {
-      type: String,
-      required: true,
-    },
-    timestamp: {
+  },
+  tracking: {
+    lastUserLocation: [Number],
+    lastResponderLocation: [Number],
+    lastUpdated: {
       type: Date,
       default: Date.now,
     },
-    type: {
-      type: String,
-      enum: ['text', 'system'],
-      default: 'text',
-    },
-  }],
-  resolvedAt: {
-    type: Date,
   },
+  deviceInfo: {
+    batteryLevel: Number,
+    osVersion: String,
+    appVersion: String,
+  },
+  resolvedAt: Date,
 }, {
   timestamps: true,
 });
@@ -149,13 +144,5 @@ const AlertSchema: Schema = new Schema({
 AlertSchema.index({ location: '2dsphere' });
 AlertSchema.index({ status: 1, createdAt: -1 });
 AlertSchema.index({ userId: 1, createdAt: -1 });
-
-// Update status when resolvedAt is set
-AlertSchema.pre('save', function(next) {
-  if (this.isModified('resolvedAt') && this.resolvedAt) {
-    this.status = 'resolved';
-  }
-  next();
-});
 
 export default mongoose.model<IAlert>('Alert', AlertSchema);
