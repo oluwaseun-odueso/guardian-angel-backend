@@ -1,29 +1,152 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import AlertService from '../services/alert.service';
 import ResponseHandler from '../utils/response';
 import logger from '../utils/logger';
 import { AuthRequest } from '../middlewares/auth.middleware';
 
 export class AlertController {
-  static async createAlert(req: AuthRequest, res: Response): Promise<Response> {
+  // Create manual alert (select specific responder)
+  static async createManualAlert(req: AuthRequest, res: Response): Promise<Response> {
     try {
       if (!req.user) {
         return ResponseHandler.error(res, 'User not authenticated', 401);
       }
-
-      const alert = await AlertService.createAlert({
-        userId: req.user._id.toString(),
-        ...req.body,
-      });
-
-      return ResponseHandler.success(res, alert, 'Alert created successfully', 201);
+      
+      const { responderId, coordinates, accuracy } = req.body;
+      
+      if (!responderId || !coordinates || !accuracy) {
+        return ResponseHandler.error(res, 'Responder ID, coordinates, and accuracy are required', 400);
+      }
+      
+      const result = await AlertService.createManualAlert(
+        req.user._id.toString(),
+        responderId,
+        { coordinates, accuracy }
+      );
+      
+      return ResponseHandler.success(res, result, 'Manual alert created successfully');
     } catch (error: any) {
-      logger.error('Create alert controller error:', error);
+      logger.error('Create manual alert error:', error);
+      return ResponseHandler.error(res, error.message, 400);
+    }
+  }
+  
+  // Create panic alert (auto-assign)
+  static async createPanicAlert(req: AuthRequest, res: Response): Promise<Response> {
+    try {
+      if (!req.user) {
+        return ResponseHandler.error(res, 'User not authenticated', 401);
+      }
+      
+      const { coordinates, accuracy } = req.body;
+      
+      if (!coordinates || !accuracy) {
+        return ResponseHandler.error(res, 'Coordinates and accuracy are required', 400);
+      }
+      
+      const result = await AlertService.createPanicAlert(
+        req.user._id.toString(),
+        { coordinates, accuracy }
+      );
+      
+      return ResponseHandler.success(res, result, 'Panic alert created, responder assigned');
+    } catch (error: any) {
+      logger.error('Create panic alert error:', error);
+      return ResponseHandler.error(res, error.message, 400);
+    }
+  }
+  
+  // Get available responders
+  static async getAvailableResponders(req: AuthRequest, res: Response): Promise<Response> {
+    try {
+      const { lat, lng } = req.query;
+      
+      let latitude, longitude;
+      if (lat && lng) {
+        latitude = parseFloat(lat as string);
+        longitude = parseFloat(lng as string);
+      }
+      
+      const responders = await AlertService.getAvailableResponders(latitude, longitude);
+      
+      return ResponseHandler.success(res, responders, 'Available responders retrieved');
+    } catch (error: any) {
+      logger.error('Get available responders error:', error);
+      return ResponseHandler.error(res, 'Failed to get responders');
+    }
+  }
+  
+  // Get user's alerts
+  static async getUserAlerts(req: AuthRequest, res: Response): Promise<Response> {
+    try {
+      if (!req.user) {
+        return ResponseHandler.error(res, 'User not authenticated', 401);
+      }
+      
+      const { status } = req.query;
+      
+      const alerts = await AlertService.getUserAlerts(
+        req.user._id.toString(),
+        status as string
+      );
+      
+      return ResponseHandler.success(res, alerts, 'User alerts retrieved');
+    } catch (error: any) {
+      logger.error('Get user alerts error:', error);
+      return ResponseHandler.error(res, 'Failed to get alerts');
+    }
+  }
+  
+  // Get live tracking for an alert
+  static async getLiveTracking(req: AuthRequest, res: Response): Promise<Response> {
+    try {
+      if (!req.user) {
+        return ResponseHandler.error(res, 'User not authenticated', 401);
+      }
+      
+      const { alertId } = req.params;
+      
+      const trackingData = await AlertService.getLiveTracking(
+        alertId,
+        req.user._id.toString()
+      );
+      
+      return ResponseHandler.success(res, trackingData, 'Live tracking data retrieved');
+    } catch (error: any) {
+      logger.error('Get live tracking error:', error);
+      return ResponseHandler.error(res, error.message, 400);
+    }
+  }
+  
+  // Update user location
+  static async updateUserLocation(req: AuthRequest, res: Response): Promise<Response> {
+    try {
+      if (!req.user) {
+        return ResponseHandler.error(res, 'User not authenticated', 401);
+      }
+      
+      const { alertId, coordinates, accuracy } = req.body;
+      
+      if (!coordinates || !Array.isArray(coordinates) || coordinates.length !== 2) {
+        return ResponseHandler.error(res, 'Valid coordinates array [lng, lat] required', 400);
+      }
+
+      const coordinateTuple: [number, number] = [coordinates[0], coordinates[1]];
+      
+      const result = await AlertService.updateUserLocation(
+        alertId,
+        coordinateTuple,
+        accuracy || 15
+      );
+      
+      return ResponseHandler.success(res, result, 'User location updated');
+    } catch (error: any) {
+      logger.error('Update user location error:', error);
       return ResponseHandler.error(res, error.message, 400);
     }
   }
 
-  static async getUserAlerts(req: AuthRequest, res: Response): Promise<Response> {
+  static async getUserAlertss(req: AuthRequest, res: Response): Promise<Response> {
     try {
       if (!req.user) {
         return ResponseHandler.error(res, 'User not authenticated', 401);
@@ -37,97 +160,142 @@ export class AlertController {
       return ResponseHandler.error(res, 'Failed to retrieve alerts');
     }
   }
-
-  static async getActiveAlerts(req: Request, res: Response): Promise<Response> {
-    try {
-      const { type, status, lat, lng, radius = 5 } = req.query;
-      
-      const filters: any = {};
-      
-      if (type) filters.type = type;
-      if (status) filters.status = status;
-      
-      if (lat && lng) {
-        filters.location = {
-          coordinates: [parseFloat(lng as string), parseFloat(lat as string)],
-          radius: parseFloat(radius as string),
-        };
-      }
-
-      const alerts = await AlertService.getActiveAlerts(filters);
-      
-      return ResponseHandler.success(res, alerts, 'Active alerts retrieved');
-    } catch (error: any) {
-      logger.error('Get active alerts error:', error);
-      return ResponseHandler.error(res, 'Failed to retrieve alerts');
-    }
-  }
-
-  static async updateAlertStatus(req: AuthRequest, res: Response): Promise<Response> {
-    try {
-      if (!req.user) {
-        return ResponseHandler.error(res, 'User not authenticated', 401);
-      }
-
-      const { alertId } = req.params;
-      const { status } = req.body;
-      
-      const alert = await AlertService.updateAlertStatus(
-        alertId,
-        status,
-        req.user._id.toString()
-      );
-      
-      if (!alert) {
-        return ResponseHandler.notFound(res, 'Alert not found');
-      }
-      
-      return ResponseHandler.success(res, alert, 'Alert status updated');
-    } catch (error: any) {
-      logger.error('Update alert status error:', error);
-      return ResponseHandler.error(res, error.message, 400);
-    }
-  }
-
-  static async getAlertDetails(req: AuthRequest, res: Response): Promise<Response> {
-    try {
-      const { alertId } = req.params;
-      
-      // This would be implemented in AlertService
-      // For now, return success
-      return ResponseHandler.success(res, { alertId }, 'Alert details retrieved');
-    } catch (error: any) {
-      logger.error('Get alert details error:', error);
-      return ResponseHandler.error(res, 'Failed to get alert details');
-    }
-  }
-
-  static async addMessageToAlert(req: AuthRequest, res: Response): Promise<Response> {
-    try {
-      if (!req.user) {
-        return ResponseHandler.error(res, 'User not authenticated', 401);
-      }
-
-      const { alertId } = req.params;
-      const { content, type = 'text' } = req.body;
-      
-      const alert = await AlertService.addMessage(
-        alertId,
-        req.user._id.toString(),
-        content,
-        type
-      );
-      
-      if (!alert) {
-        return ResponseHandler.notFound(res, 'Alert not found');
-      }
-      
-      return ResponseHandler.success(res, alert, 'Message added');
-    } catch (error: any) {
-      logger.error('Add message error:', error);
-      return ResponseHandler.error(res, error.message, 400);
-    }
-  }
 }
 
 export default AlertController;
+
+
+
+// import { Request, Response } from 'express';
+// import AlertService from '../services/alert.service';
+// import ResponseHandler from '../utils/response';
+// import logger from '../utils/logger';
+// import { AuthRequest } from '../middlewares/auth.middleware';
+
+// export class AlertController {
+//   static async createAlert(req: AuthRequest, res: Response): Promise<Response> {
+//     try {
+//       if (!req.user) {
+//         return ResponseHandler.error(res, 'User not authenticated', 401);
+//       }
+
+//       const alert = await AlertService.createAlert({
+//         userId: req.user._id.toString(),
+//         ...req.body,
+//       });
+
+//       return ResponseHandler.success(res, alert, 'Alert created successfully', 201);
+//     } catch (error: any) {
+//       logger.error('Create alert controller error:', error);
+//       return ResponseHandler.error(res, error.message, 400);
+//     }
+//   }
+
+  // static async getUserAlerts(req: AuthRequest, res: Response): Promise<Response> {
+  //   try {
+  //     if (!req.user) {
+  //       return ResponseHandler.error(res, 'User not authenticated', 401);
+  //     }
+
+  //     const alerts = await AlertService.getUserAlerts(req.user._id.toString());
+      
+  //     return ResponseHandler.success(res, alerts, 'Alerts retrieved');
+  //   } catch (error: any) {
+  //     logger.error('Get user alerts error:', error);
+  //     return ResponseHandler.error(res, 'Failed to retrieve alerts');
+  //   }
+  // }
+
+//   static async getActiveAlerts(req: Request, res: Response): Promise<Response> {
+//     try {
+//       const { type, status, lat, lng, radius = 5 } = req.query;
+      
+//       const filters: any = {};
+      
+//       if (type) filters.type = type;
+//       if (status) filters.status = status;
+      
+//       if (lat && lng) {
+//         filters.location = {
+//           coordinates: [parseFloat(lng as string), parseFloat(lat as string)],
+//           radius: parseFloat(radius as string),
+//         };
+//       }
+
+//       const alerts = await AlertService.getActiveAlerts(filters);
+      
+//       return ResponseHandler.success(res, alerts, 'Active alerts retrieved');
+//     } catch (error: any) {
+//       logger.error('Get active alerts error:', error);
+//       return ResponseHandler.error(res, 'Failed to retrieve alerts');
+//     }
+//   }
+
+  // static async updateAlertStatus(req: AuthRequest, res: Response): Promise<Response> {
+  //   try {
+  //     if (!req.user) {
+  //       return ResponseHandler.error(res, 'User not authenticated', 401);
+  //     }
+
+  //     const { alertId } = req.params;
+  //     const { status } = req.body;
+      
+  //     const alert = await AlertService.updateAlertStatus(
+  //       alertId,
+  //       status,
+  //       req.user._id.toString()
+  //     );
+      
+  //     if (!alert) {
+  //       return ResponseHandler.notFound(res, 'Alert not found');
+  //     }
+      
+  //     return ResponseHandler.success(res, alert, 'Alert status updated');
+  //   } catch (error: any) {
+  //     logger.error('Update alert status error:', error);
+  //     return ResponseHandler.error(res, error.message, 400);
+  //   }
+  // }
+
+//   static async getAlertDetails(req: AuthRequest, res: Response): Promise<Response> {
+//     try {
+//       const { alertId } = req.params;
+      
+//       // This would be implemented in AlertService
+//       // For now, return success
+//       return ResponseHandler.success(res, { alertId }, 'Alert details retrieved');
+//     } catch (error: any) {
+//       logger.error('Get alert details error:', error);
+//       return ResponseHandler.error(res, 'Failed to get alert details');
+//     }
+//   }
+
+//   static async addMessageToAlert(req: AuthRequest, res: Response): Promise<Response> {
+//     try {
+//       if (!req.user) {
+//         return ResponseHandler.error(res, 'User not authenticated', 401);
+//       }
+
+//       const { alertId } = req.params;
+//       const { content, type = 'text' } = req.body;
+      
+//       const alert = await AlertService.addMessage(
+//         alertId,
+//         req.user._id.toString(),
+//         content,
+//         type
+//       );
+      
+//       if (!alert) {
+//         return ResponseHandler.notFound(res, 'Alert not found');
+//       }
+      
+//       return ResponseHandler.success(res, alert, 'Message added');
+//     } catch (error: any) {
+//       logger.error('Add message error:', error);
+//       return ResponseHandler.error(res, error.message, 400);
+//     }
+//   }
+// }
+
+// export default AlertController;
