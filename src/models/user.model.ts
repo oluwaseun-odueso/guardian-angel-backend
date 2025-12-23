@@ -35,25 +35,25 @@ export interface IUser extends Document {
     }>;
   };
   isActive: boolean;
-  // lastKnownLocation?: {
-  //   type: 'Point';
-  //   coordinates: [number, number];
-  //   timestamp: Date;
-  //   accuracy: number;
-  //   enrichedData?: {
-  //     address?: {
-  //       formatted: string;
-  //       street?: string;
-  //       city?: string;
-  //       state?: string;
-  //       country?: string;
-  //       postalCode?: string;
-  //       neighborhood?: string;
-  //     };
-  //     placeId?: string;
-  //     staticMapUrl?: string;
-  //   };
-  // };
+  lastKnownLocation?: {
+    type: 'Point';
+    coordinates: [number, number];
+    timestamp: Date;
+    accuracy: number;
+    enrichedData?: {
+      address?: {
+        formatted: string;
+        street?: string;
+        city?: string;
+        state?: string;
+        country?: string;
+        postalCode?: string;
+        neighborhood?: string;
+      };
+      placeId?: string;
+      staticMapUrl?: string;
+    };
+  };
   deviceInfo?: {
     batteryLevel?: number;
     batteryHealth?: 'good' | 'fair' | 'poor' | 'critical';
