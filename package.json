@@ -7,7 +7,7 @@
     "dev": "nodemon src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "render-build": "npm ci --only=production --ignore-scripts && npm ci --only=dev --ignore-scripts && npm run build",
+    "render-build": "npm ci --ignore-scripts && npm ci --only=dev --ignore-scripts && npm run build",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
