@@ -94,7 +94,7 @@ export class NotificationService {
       
       // Enhanced message with address
       const message = `🚨 EMERGENCY ALERT\n` +
-        `User: ${user.firstName} ${user.lastName}\n` +
+        `User: ${user.fullName}\n` +
         `Type: ${alert.type.toUpperCase()}\n` +
         `Location: ${enrichedLocation?.address?.formatted || 'Unknown location'}\n` +
         `Time: ${new Date(alert.createdAt).toLocaleTimeString()}\n` +
@@ -112,7 +112,7 @@ export class NotificationService {
 
       // 2. Notify emergency contacts via SMS with location
       if (user.emergencyContacts && user.emergencyContacts.length > 0) {
-        const smsMessage = `EMERGENCY: ${user.firstName} ${user.lastName} needs help at ` +
+        const smsMessage = `EMERGENCY: ${user.fillName} needs help at ` +
           `${enrichedLocation?.address?.formatted || 'unknown location'}. ` +
           `Map: ${enrichedLocation?.staticMapUrl?.substring(0, 100)}...`;
         
@@ -382,8 +382,8 @@ export class NotificationService {
       }
 
       // Type guard for populated userId
-      const userDoc = typeof alert.userId === 'object' && 'firstName' in alert.userId ? alert.userId as unknown as { firstName: string; lastName: string } : null;
-      const userName = userDoc ? `${userDoc.firstName} ${userDoc.lastName}` : 'Unknown User';
+      const userDoc = typeof alert.userId === 'object' && 'fullName' in alert.userId ? alert.userId as unknown as { fullName: string; } : null;
+      const userName = userDoc ? `${userDoc.fullName}` : 'Unknown User';
 
       const title = `Alert Status Updated`;
       const body = `Alert for ${userName} is now ${status}`;
@@ -426,7 +426,7 @@ export class NotificationService {
 
       const html = `
         <h1>Welcome to Guardian Angel! 🛡️</h1>
-        <p>Hello ${user.firstName},</p>
+        <p>Hello ${user.fullName},</p>
         <p>Thank you for joining Guardian Angel. Your safety is our priority.</p>
         
         <h3>Getting Started:</h3>
@@ -473,7 +473,7 @@ export class NotificationService {
         for (const contact of user.emergencyContacts) {
           await this.sendSMS(
             contact.phone,
-            `Safety Alert: ${user.firstName} ${user.lastName} has not checked in as scheduled. Last known location has been shared with responders.`
+            `Safety Alert: ${user.fullName} has not checked in as scheduled. Last known location has been shared with responders.`
           );
         }
       }

@@ -173,6 +173,8 @@ export class AlertService {
       if (!user) {
         throw new Error('User not found');
       }
+
+      console.log('User:', user)
       
       // 2. Find nearest available responders
       const nearestResponders = await GeocodingServiceInstance.findNearestResponders(
@@ -288,7 +290,7 @@ export class AlertService {
         alert: alert[0],
         assignedResponder: {
           id: responder.userId,
-          name: `${responder.firstName} ${responder.lastName}`,
+          name: `${responder.fullName}`,
           distance: bestResponder.distance,
           estimatedTime: routeInfo?.duration.text,
           vehicleType: responder.vehicleType,
@@ -316,7 +318,7 @@ export class AlertService {
       };
       
       const responders = await Responder.find(query)
-        .populate('userId', 'firstName lastName profileImage')
+        .populate('userId', 'fullName profileImage')
         .lean();
       
       // If location provided, calculate distances
@@ -667,8 +669,8 @@ export class AlertService {
   static async getLiveTracking(alertId: string, userId: string) {
     try {
       const alert = await Alert.findById(alertId)
-        .populate('userId', 'firstName lastName phone')
-        .populate('assignedResponder.responderId', 'firstName lastName phone vehicleType');
+        .populate('userId', 'fullName phone')
+        .populate('assignedResponder.responderId', 'fullName phone vehicleType');
       
       if (!alert) {
         throw new Error('Alert not found');
@@ -785,7 +787,7 @@ export class AlertService {
       }
       
       const alerts = await Alert.find(query)
-        .populate('assignedResponder.responderId', 'firstName lastName phone rating vehicleType')
+        .populate('assignedResponder.responderId', 'fullName phone rating vehicleType')
         .sort({ createdAt: -1 })
         .limit(50);
       
@@ -806,7 +808,7 @@ export class AlertService {
       }
       
       const alerts = await Alert.find(query)
-        .populate('userId', 'firstName lastName phone medicalInfo')
+        .populate('userId', 'fullName phone medicalInfo')
         .sort({ createdAt: -1 })
         .limit(50);
       
@@ -833,7 +835,7 @@ export class AlertService {
       const alerts = await Alert.find({ userId })
         .sort({ createdAt: -1 })
         .limit(50)
-        .populate('assignedResponders.responderId', 'firstName lastName phone');
+        .populate('assignedResponders.responderId', 'fullName phone');
 
       return alerts;
     } catch (error: any) {

@@ -416,7 +416,7 @@ export class LocationService {
       const history = await LocationHistory.find({ alertId })
         .sort({ timestamp: 1 })
         .select('userId coordinates accuracy batteryLevel timestamp address enrichedData')
-        .populate('userId', 'firstName lastName')
+        .populate('userId', 'fullName')
         .lean();
 
       return history.map((record: any) => ({

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import AlertController from '../controllers/alert.controller';
-import { authenticate, authorize } from '../middlewares/auth.middleware';
-import { validate, AlertSchemas } from '../middlewares/validation.middleware';
+import { authenticate } from '../middlewares/auth.middleware';
+// import { validate, AlertSchemas } from '../middlewares/validation.middleware';
 
 const router = Router();
 

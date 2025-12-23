@@ -2,10 +2,10 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IResponder extends Document {
   userId: mongoose.Types.ObjectId;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   email: string;
   phone: string;
+  hospital: string;
   certifications: string[];
   experienceYears: number;
   vehicleType?: 'car' | 'motorcycle' | 'bicycle' | 'foot' | 'ambulance';
@@ -49,11 +49,7 @@ const ResponderSchema: Schema = new Schema({
     required: true,
     unique: true,
   },
-  firstName: {
-    type: String,
-    required: true,
-  },
-  lastName: {
+  fullName: {
     type: String,
     required: true,
   },
@@ -64,6 +60,10 @@ const ResponderSchema: Schema = new Schema({
   phone: {
     type: String,
     required: true,
+  },
+  hospital: {
+    type: String,
+    required: true
   },
   certifications: {
     type: [String],

@@ -19,10 +19,10 @@ export class UserController {
       if (!req.user) {
         return ResponseHandler.error(res, 'User not authenticated', 401);
       }
-      const { firstName, lastName, phone } = req.body;
+      const { fullName, phone } = req.body;
       const user = await User.findByIdAndUpdate(
         req.user._id,
-        { firstName, lastName, phone },
+        { fullName, phone },
         { new: true }
       );
       return ResponseHandler.success(res, user, 'Profile updated');

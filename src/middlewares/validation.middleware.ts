@@ -28,8 +28,7 @@ export const AuthSchemas = {
   register: Joi.object({
     email: Joi.string().email().required().trim().lowercase(),
     password: Joi.string().min(8).required(),
-    firstName: Joi.string().required().trim(),
-    lastName: Joi.string().required().trim(),
+    fullName: Joi.string().required().trim(),
     phone: Joi.string().required().trim(),
     role: Joi.string().valid('user', 'admin', 'responder').default('user'),
   }),
@@ -81,7 +80,7 @@ export const LocationSchemas = {
 
 export const UserSchemas = {
   updateProfile: Joi.object({
-    firstName: Joi.string().trim(),
+    fullName: Joi.string().trim(),
     lastName: Joi.string().trim(),
     phone: Joi.string().trim(),
   }),

@@ -243,8 +243,8 @@ export class LocationUpdateService {
   ): Promise<LiveTrackingData> {
     try {
       const alert = await Alert.findById(alertId)
-        .populate('userId', 'firstName lastName')
-        .populate('assignedResponder.responderId', 'firstName lastName vehicleType');
+        .populate('userId', 'fullName')
+        .populate('assignedResponder.responderId', 'fullName vehicleType');
       
       if (!alert) {
         throw new Error('Alert not found');

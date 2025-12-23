@@ -273,6 +273,48 @@ export class GeocodingService {
     }
   }
 
+  async geocodeAddress(address: string): Promise<GeoCoordinates | null> {
+    try {
+      if (!this.googleApiKey) {
+        logger.warn('Google Maps API key missing for geocoding');
+        return null;
+      }
+
+      const cacheKey = `geocode:${address}`;
+      const cached = this.cache.get<GeoCoordinates>(cacheKey);
+      if (cached) {
+        logger.debug(`Geocode cache hit for: ${address}`);
+        return cached;
+      }
+
+      const response = await axios.get(`${this.baseUrl}/geocode/json`, {
+        params: {
+          address,
+          key: this.googleApiKey,
+        },
+      });
+
+      if (response.data.status === 'OK' && response.data.results.length > 0) {
+        const location = response.data.results[0].geometry.location;
+        const coordinates: GeoCoordinates = {
+          latitude: location.lat,
+          longitude: location.lng,
+        };
+
+        this.cache.set(cacheKey, coordinates);
+        logger.info(`Geocoded address: ${address} → ${coordinates.latitude}, ${coordinates.longitude}`);
+        
+        return coordinates;
+      }
+
+      logger.warn(`Geocoding failed for address: ${address}`, response.data);
+      return null;
+    } catch (error: any) {
+      logger.error('Geocoding error:', error);
+      return null;
+    }
+  }
+
   getStaticMapUrl(
     coordinates: GeoCoordinates,
     markers?: Array<{
@@ -386,47 +428,47 @@ export default GeocodingService.getInstance();
 //     return GeocodingService.instance;
 //   }
 
-//   async geocodeAddress(address: string): Promise<GeoCoordinates | null> {
-//     try {
-//       if (!this.googleApiKey) {
-//         logger.warn('Google Maps API key missing for geocoding');
-//         return null;
-//       }
+  // async geocodeAddress(address: string): Promise<GeoCoordinates | null> {
+  //   try {
+  //     if (!this.googleApiKey) {
+  //       logger.warn('Google Maps API key missing for geocoding');
+  //       return null;
+  //     }
 
-//       const cacheKey = `geocode:${address}`;
-//       const cached = this.cache.get<GeoCoordinates>(cacheKey);
-//       if (cached) {
-//         logger.debug(`Geocode cache hit for: ${address}`);
-//         return cached;
-//       }
+  //     const cacheKey = `geocode:${address}`;
+  //     const cached = this.cache.get<GeoCoordinates>(cacheKey);
+  //     if (cached) {
+  //       logger.debug(`Geocode cache hit for: ${address}`);
+  //       return cached;
+  //     }
 
-//       const response = await axios.get(`${this.baseUrl}/geocode/json`, {
-//         params: {
-//           address,
-//           key: this.googleApiKey,
-//         },
-//       });
+  //     const response = await axios.get(`${this.baseUrl}/geocode/json`, {
+  //       params: {
+  //         address,
+  //         key: this.googleApiKey,
+  //       },
+  //     });
 
-//       if (response.data.status === 'OK' && response.data.results.length > 0) {
-//         const location = response.data.results[0].geometry.location;
-//         const coordinates: GeoCoordinates = {
-//           latitude: location.lat,
-//           longitude: location.lng,
-//         };
+  //     if (response.data.status === 'OK' && response.data.results.length > 0) {
+  //       const location = response.data.results[0].geometry.location;
+  //       const coordinates: GeoCoordinates = {
+  //         latitude: location.lat,
+  //         longitude: location.lng,
+  //       };
 
-//         this.cache.set(cacheKey, coordinates);
-//         logger.info(`Geocoded address: ${address} → ${coordinates.latitude}, ${coordinates.longitude}`);
+  //       this.cache.set(cacheKey, coordinates);
+  //       logger.info(`Geocoded address: ${address} → ${coordinates.latitude}, ${coordinates.longitude}`);
         
-//         return coordinates;
-//       }
+  //       return coordinates;
+  //     }
 
-//       logger.warn(`Geocoding failed for address: ${address}`, response.data);
-//       return null;
-//     } catch (error: any) {
-//       logger.error('Geocoding error:', error);
-//       return null;
-//     }
-//   }
+  //     logger.warn(`Geocoding failed for address: ${address}`, response.data);
+  //     return null;
+  //   } catch (error: any) {
+  //     logger.error('Geocoding error:', error);
+  //     return null;
+  //   }
+  // }
 
 //   async reverseGeocode(coordinates: GeoCoordinates): Promise<GeoAddress | null> {
 //     try {

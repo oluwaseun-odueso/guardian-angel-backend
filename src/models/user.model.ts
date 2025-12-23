@@ -5,8 +5,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   role: 'user' | 'responder' | 'admin';
-  firstName: string;
-  lastName: string;
+  fullName: string;
   phone: string;
   profileImage?: string;
   emergencyContacts?: Array<{
@@ -36,25 +35,25 @@ export interface IUser extends Document {
     }>;
   };
   isActive: boolean;
-  lastKnownLocation?: {
-    type: 'Point';
-    coordinates: [number, number];
-    timestamp: Date;
-    accuracy: number;
-    enrichedData?: {
-      address?: {
-        formatted: string;
-        street?: string;
-        city?: string;
-        state?: string;
-        country?: string;
-        postalCode?: string;
-        neighborhood?: string;
-      };
-      placeId?: string;
-      staticMapUrl?: string;
-    };
-  };
+  // lastKnownLocation?: {
+  //   type: 'Point';
+  //   coordinates: [number, number];
+  //   timestamp: Date;
+  //   accuracy: number;
+  //   enrichedData?: {
+  //     address?: {
+  //       formatted: string;
+  //       street?: string;
+  //       city?: string;
+  //       state?: string;
+  //       country?: string;
+  //       postalCode?: string;
+  //       neighborhood?: string;
+  //     };
+  //     placeId?: string;
+  //     staticMapUrl?: string;
+  //   };
+  // };
   deviceInfo?: {
     batteryLevel?: number;
     batteryHealth?: 'good' | 'fair' | 'poor' | 'critical';
@@ -90,12 +89,7 @@ const UserSchema: Schema = new Schema({
     default: 'user',
     required: true,
   },
-  firstName: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  lastName: {
+  fullName: {
     type: String,
     required: true,
     trim: true,
@@ -172,35 +166,38 @@ const UserSchema: Schema = new Schema({
     type: Boolean,
     default: true,
   },
-  lastKnownLocation: {
-    type: {
-      type: String,
-      enum: ['Point'],
-      default: 'Point',
-    },
-    coordinates: {
-      type: [Number],
-    },
-    timestamp: {
-      type: Date,
-    },
-    accuracy: {
-      type: Number,
-    },
-    enrichedData: {
-      address: {
-        formatted: String,
-        street: String,
-        city: String,
-        state: String,
-        country: String,
-        postalCode: String,
-        neighborhood: String,
-      },
-      placeId: String,
-      staticMapUrl: String,
-    },
-  },
+  // lastKnownLocation: {
+  //   type: {
+  //     type: String,
+  //     enum: ['Point'],
+  //     default: 'Point',
+  //   },
+  //   coordinates: {
+  //     type: [Number],
+  //     required: false,
+  //   },
+  //   timestamp: {
+  //     type: Date,
+  //     required: false,
+  //   },
+  //   accuracy: {
+  //     type: Number,
+  //     required: false,
+  //   },
+  //   enrichedData: {
+  //     address: {
+  //       formatted: String,
+  //       street: String,
+  //       city: String,
+  //       state: String,
+  //       country: String,
+  //       postalCode: String,
+  //       neighborhood: String,
+  //     },
+  //     placeId: String,
+  //     staticMapUrl: String,
+  //   },
+  // },
   deviceInfo: {
     batteryLevel: {
       type: Number,

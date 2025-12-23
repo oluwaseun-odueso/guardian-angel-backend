@@ -2,8 +2,11 @@
 import { Router } from 'express';
 import ResponderAuthController from '../controllers/responder.auth.controller';
 import ResponderController from '../controllers/responder.controller';
+import { authenticate } from '../middlewares/auth.middleware';
 
 const router = Router();
+
+router.use(authenticate);
 
 // Responder registration & profile
 router.post('/register', ResponderAuthController.register);

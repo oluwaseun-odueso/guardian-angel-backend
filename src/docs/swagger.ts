@@ -36,7 +36,7 @@ const options: swaggerJSDoc.Options = {
       schemas: {
         User: {
           type: 'object',
-          required: ['email', 'firstName', 'lastName', 'phone'],
+          required: ['email', 'fullName', 'phone'],
           properties: {
             _id: {
               type: 'string',
@@ -46,10 +46,7 @@ const options: swaggerJSDoc.Options = {
               type: 'string',
               format: 'email',
             },
-            firstName: {
-              type: 'string',
-            },
-            lastName: {
+            fullName: {
               type: 'string',
             },
             phone: {

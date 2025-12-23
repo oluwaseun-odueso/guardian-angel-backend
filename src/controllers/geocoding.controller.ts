@@ -1,5 +1,6 @@
 import { Response } from 'express';
-import GeocodingService from '../services/geocoding.service';
+import GeocodingServiceInstance from '../services/geocoding.service';
+import { GeocodingService } from '../services/geocoding.service'
 import ResponseHandler from '../utils/response';
 import logger from '../utils/logger';
 import { AuthRequest } from '../middlewares/auth.middleware';
@@ -13,7 +14,7 @@ export class GeocodingController {
         return ResponseHandler.error(res, 'Address is required', 400);
       }
 
-      const coordinates = await GeocodingService.geocodeAddress(address);
+      const coordinates = await GeocodingServiceInstance.geocodeAddress(address);
       
       if (!coordinates) {
         return ResponseHandler.error(res, 'Could not geocode address', 404);
@@ -34,7 +35,7 @@ export class GeocodingController {
         return ResponseHandler.error(res, 'Latitude and Longitude are required', 400);
       }
 
-      const address = await GeocodingService.reverseGeocode({ latitude, longitude });
+      const address = await GeocodingServiceInstance.reverseGeocode({ latitude, longitude });
       
       if (!address) {
         return ResponseHandler.error(res, 'Could not reverse geocode coordinates', 404);
@@ -60,7 +61,13 @@ export class GeocodingController {
         return ResponseHandler.error(res, 'Valid coordinates are required', 400);
       }
 
-      const distance = await GeocodingService.calculateDistance(point1, point2, unit);
+      // const distance = GeocodingService.calculateDistance(point1, point2, unit);
+      const distance = GeocodingService.calculateDistance(
+        point1.latitude,
+        point1.longitude,
+        point2.latitude,
+        point2.longitude
+        )
       
       return ResponseHandler.success(res, { distance, unit }, 'Distance calculated');
     } catch (error: any) {
@@ -77,7 +84,7 @@ export class GeocodingController {
         return ResponseHandler.error(res, 'Origin and destination are required', 400);
       }
 
-      const route = await GeocodingService.getRoute(origin, destination, mode);
+      const route = await GeocodingServiceInstance.getRoute(origin, destination, mode);
       
       if (!route) {
         return ResponseHandler.error(res, 'Could not calculate route', 404);
@@ -98,7 +105,7 @@ export class GeocodingController {
         return ResponseHandler.error(res, 'Latitude and longitude are required', 400);
       }
 
-      const places = await GeocodingService.getNearbyPlaces(
+      const places = await GeocodingServiceInstance.getNearbyPlaces(
         { latitude: parseFloat(latitude as string), longitude: parseFloat(longitude as string) },
         parseInt(radius as string),
         type as string
@@ -119,7 +126,7 @@ export class GeocodingController {
         return ResponseHandler.error(res, 'Latitude and longitude are required', 400);
       }
 
-      const mapUrl = GeocodingService.getStaticMapUrl(
+      const mapUrl = GeocodingServiceInstance.getStaticMapUrl(
         { latitude: parseFloat(latitude as string), longitude: parseFloat(longitude as string) },
         undefined,
         parseInt(zoom as string),

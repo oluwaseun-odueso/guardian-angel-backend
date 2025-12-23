@@ -4,10 +4,10 @@ import User from '../models/user.model';
 import logger from '../utils/logger';
 
 export class ResponderAuthService {
-  // Register as a responder
   static async registerAsResponder(
     userId: string,
     data: {
+      hospital: string;
       certifications?: string[];
       experienceYears?: number;
       vehicleType?: 'car' | 'motorcycle' | 'bicycle' | 'foot' | 'ambulance';
@@ -15,7 +15,7 @@ export class ResponderAuthService {
       availability?: any;
       maxDistance?: number;
       bio?: string;
-      hourlyRate?: number;
+      currentLocation: object
     }
   ) {
     const session = await mongoose.startSession();
@@ -23,46 +23,47 @@ export class ResponderAuthService {
     try {
       session.startTransaction();
       
-      // 1. Get user details
       const user = await User.findById(userId).session(session);
       if (!user) {
         throw new Error('User not found');
       }
       
-      // 2. Check if already a responder
       const existingResponder = await Responder.findOne({ userId }).session(session);
       if (existingResponder) {
         throw new Error('Already registered as a responder');
       }
+
+      const validatedAvailability = data.availability 
+      ? this.validateAvailability(data.availability)
+      : this.getDefaultAvailability();
       
-      // 3. Create responder profile
       const responder = await Responder.create([{
         userId: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        fullName: user.fullName,
         email: user.email,
         phone: user.phone,
+        hospital: data.hospital,
         certifications: data.certifications || [],
         experienceYears: data.experienceYears || 0,
         vehicleType: data.vehicleType,
         licenseNumber: data.licenseNumber,
-        availability: data.availability || this.getDefaultAvailability(),
+        availability: validatedAvailability,
         maxDistance: data.maxDistance || 10,
         bio: data.bio,
-        hourlyRate: data.hourlyRate,
         status: 'offline',
         rating: 5,
         isActive: true,
         isVerified: false, // Needs admin verification
+        currentLocation: data.currentLocation
       }], { session });
       
-      // 4. Update user role
+      // Update user role
       user.role = 'responder';
       await user.save({ session });
       
       await session.commitTransaction();
       
-      logger.info(`Responder registered: ${userId} - ${user.firstName} ${user.lastName}`);
+      logger.info(`Responder registered: ${userId} - ${user.fullName}`);
       
       return responder[0];
     } catch (error) {
@@ -74,10 +75,10 @@ export class ResponderAuthService {
     }
   }
   
-  // Update responder profile
   static async updateProfile(
     userId: string,
     updateData: {
+      fullName?: string;
       certifications?: string[];
       experienceYears?: number;
       vehicleType?: 'car' | 'motorcycle' | 'bicycle' | 'foot' | 'ambulance';
@@ -109,7 +110,6 @@ export class ResponderAuthService {
     }
   }
   
-  // Update responder status
   static async updateStatus(userId: string, status: 'available' | 'busy' | 'offline') {
     try {
       const responder = await Responder.findOneAndUpdate(
@@ -136,27 +136,35 @@ export class ResponderAuthService {
     }
   }
   
-  // Update responder location
   static async updateLocation(
     userId: string,
     coordinates: number[],
-    _accuracy: number
+    accuracy: number
   ) {
     try {
+      if (!coordinates || coordinates.length !== 2) {
+        throw new Error('Valid coordinates array with exactly 2 elements required');
+      }
+
       const responder = await Responder.findOneAndUpdate(
         { userId },
         {
           $set: {
-            'currentLocation.coordinates': coordinates,
-            'currentLocation.updatedAt': new Date(),
+            'currentLocation': {
+              type: 'Point', // Must include type
+              coordinates: coordinates,
+              updatedAt: new Date(),
+            },
             lastPing: new Date(),
           },
         },
         { new: true, upsert: true }
       );
       
-      logger.debug(`Responder location updated: ${userId}`, { coordinates });
-      
+      logger.debug(`Responder location updated: ${userId}`, { 
+        coordinates,
+        accuracy 
+      });
       return responder;
     } catch (error: any) {
       logger.error('Update responder location error:', error);
@@ -164,11 +172,11 @@ export class ResponderAuthService {
     }
   }
   
-  // Get responder profile
   static async getProfile(userId: string) {
     try {
       const responder = await Responder.findOne({ userId })
-        .populate('userId', 'firstName lastName email phone profileImage');
+        .populate('userId', 'fullName email phone profileImage')
+        .lean();
       
       if (!responder) {
         throw new Error('Responder not found');
@@ -181,7 +189,6 @@ export class ResponderAuthService {
     }
   }
   
-  // Get responder statistics
   static async getStats(userId: string) {
     try {
       const responder = await Responder.findOne({ userId });
@@ -209,14 +216,12 @@ export class ResponderAuthService {
     }
   }
   
-  // Deactivate responder
   static async deactivate(userId: string) {
     const session = await mongoose.startSession();
     
     try {
       session.startTransaction();
       
-      // 1. Update responder
       const responder = await Responder.findOneAndUpdate(
         { userId },
         {
@@ -232,7 +237,6 @@ export class ResponderAuthService {
         throw new Error('Responder not found');
       }
       
-      // 2. Update user role back to user
       await User.findByIdAndUpdate(
         userId,
         { role: 'user' },
@@ -272,13 +276,28 @@ export class ResponderAuthService {
   private static getDefaultAvailability() {
     return {
       monday: Array(24).fill(true),
-      tuesday: Array(24).fill(true),
+      tuesday: Array(24).fill(true).slice(9, 17),
       wednesday: Array(24).fill(true),
       thursday: Array(24).fill(true),
       friday: Array(24).fill(true),
       saturday: Array(24).fill(true),
       sunday: Array(24).fill(true),
     };
+  }
+
+  private static validateAvailability(availability: any) {
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const validated: any = {};
+    
+    days.forEach(day => {
+      if (availability && availability[day] && Array.isArray(availability[day])) {
+        validated[day] = availability[day].map((hour: any) => Boolean(hour));
+      } else {
+        validated[day] = Array(24).fill(false);
+      }
+    });
+    
+    return validated;
   }
 }
 
