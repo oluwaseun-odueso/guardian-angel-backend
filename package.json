@@ -9,7 +9,7 @@
     "start": "node dist/server.js",
     "install:prod": "npm ci --only=production --ignore-scripts",
     "install:dev": "npm ci --only=dev --ignore-scripts",
-    "render-build": "npm run install:prod && npm run install:dev && npm run build",
+    "render-build": "npm ci --no-package-lock --ignore-scripts && npm run build",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
