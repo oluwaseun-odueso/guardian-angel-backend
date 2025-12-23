@@ -22,7 +22,7 @@ class Database {
     }
 
     try {
-      await mongoose.connect(config.database.uri, {
+      await mongoose.connect(config.database.uri!, {
         serverSelectionTimeoutMS: 5000,
       });
 
