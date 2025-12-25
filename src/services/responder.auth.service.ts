@@ -50,14 +50,17 @@ export class ResponderAuthService {
         availability: validatedAvailability,
         maxDistance: data.maxDistance || 10,
         bio: data.bio,
-        status: 'offline',
+        status: 'available',
         rating: 5,
         isActive: true,
-        isVerified: false, // Needs admin verification
-        currentLocation: data.currentLocation
+        isVerified: true, // Needs admin verification
+        currentLocation: data.currentLocation,
+        totalAssignments: 0, // Add missing required fields
+        successfulAssignments: 0,
+        responseTimeAvg: 0,
+        lastPing: new Date(),
       }], { session });
       
-      // Update user role
       user.role = 'responder';
       await user.save({ session });
       
