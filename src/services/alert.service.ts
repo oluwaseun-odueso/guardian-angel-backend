@@ -8,6 +8,160 @@ import { GeocodingService } from '../services/geocoding.service'
 import logger from '../utils/logger';
 
 export class AlertService {
+  // static async createManualAlert(
+  //   userId: string,
+  //   responderId: string,
+  //   location: { coordinates: [number, number]; accuracy: number }
+  // ) {
+  //   const session = await mongoose.startSession();
+    
+  //   try {
+  //     session.startTransaction();
+      
+  //     const [latitude, longitude] = location.coordinates;
+      
+  //     // 1. Get user details
+  //     const user = await User.findById(userId).session(session);
+  //     if (!user) {
+  //       throw new Error('User not found');
+  //     }
+      
+  //     // 2. Check responder availability
+  //     const responder = await Responder.findOne({
+  //       userId: responderId,
+  //       status: 'available',
+  //       isActive: true,
+  //       isVerified: true,
+  //     }).session(session);
+      
+  //     if (!responder) {
+  //       throw new Error('Selected responder is not available');
+  //     }
+      
+  //     // 3. Calculate distance if responder has location
+  //     let distance: number | undefined;
+  //     let routeInfo: any;
+      
+  //     if (responder.currentLocation?.coordinates) {
+  //       const [respLat, respLng] = responder.currentLocation.coordinates;
+  //       console.log("respLng", respLng)
+  //       console.log("respLat", respLat)
+  //       console.log('A')
+        
+  //       distance = GeocodingService.calculateDistance(
+  //         latitude,
+  //         longitude,
+  //         respLat,
+  //         respLng
+  //       );
+
+  //       console.log("Distance:", distance)
+
+  //       if (!distance) {
+  //         throw new Error('Distance calculation failed')
+  //       }
+        
+  //       // Check if within responder's max distance
+  //       if (distance > responder.maxDistance) {
+  //         throw new Error(`Responder is ${distance.toFixed(1)}km away, outside their maximum range of ${responder.maxDistance}km`);
+  //       }
+        
+  //       // Get route information
+  //       routeInfo = await GeocodingServiceInstance.getRoute(
+  //         { latitude: respLat, longitude: respLng },
+  //         { latitude, longitude },
+  //         responder.vehicleType === 'car' ? 'driving' : 
+  //         responder.vehicleType === 'bicycle' ? 'bicycling' : 'walking'
+  //       );
+  //     }
+      
+  //     // 4. Geocode the location
+  //     const geocodedAddress = await GeocodingServiceInstance.reverseGeocode({
+  //       latitude,
+  //       longitude,
+  //     });
+      
+  //     // 5. Generate static map
+  //     const staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
+  //       { latitude, longitude },
+  //       [
+  //         {
+  //           coordinates: { latitude, longitude },
+  //           label: '📍',
+  //           color: 'blue',
+  //         },
+  //       ],
+  //       14,
+  //       '600x400'
+  //     );
+      
+  //     // 6. Create the alert
+  //     const alert = await Alert.create([{
+  //       userId,
+  //       type: 'manual',
+  //       status: 'active',
+  //       location: {
+  //         type: 'Point',
+  //         coordinates: location.coordinates,
+  //         accuracy: location.accuracy,
+  //         address: geocodedAddress?.formattedAddress,
+  //         geocodedData: geocodedAddress,
+  //         staticMapUrl,
+  //       },
+  //       assignedResponder: {
+  //         responderId: responder.userId,
+  //         assignedAt: new Date(),
+  //         status: 'assigned',
+  //         estimatedDistance: distance,
+  //         routeInfo: routeInfo ? {
+  //           distance: routeInfo.distance,
+  //           duration: routeInfo.duration,
+  //           estimatedArrival: new Date(Date.now() + routeInfo.duration.value * 1000),
+  //         } : undefined,
+  //       },
+  //       tracking: {
+  //         lastUserLocation: location.coordinates,
+  //         lastUpdated: new Date(),
+  //       },
+  //     }], { session });
+      
+  //     // 7. Update responder status
+  //     responder.status = 'busy';
+  //     responder.assignedAlertId = alert[0]._id;
+  //     await responder.save({ session });
+      
+  //     // 8. Save initial location to history
+  //     await LocationHistory.create([{
+  //       userId,
+  //       coordinates: location.coordinates,
+  //       accuracy: location.accuracy,
+  //       alertId: alert[0]._id,
+  //       address: geocodedAddress?.formattedAddress,
+  //       timestamp: new Date(),
+  //     }], { session });
+      
+  //     await session.commitTransaction();
+      
+  //     logger.info(`Manual alert created: ${alert[0]._id} for user ${userId}, assigned to responder ${responderId}`);
+      
+  //     return {
+  //       alert: alert[0],
+  //       distance,
+  //       estimatedTime: routeInfo?.duration.text,
+  //       locationDetails: {
+  //         address: geocodedAddress?.formattedAddress,
+  //         staticMapUrl,
+  //       },
+  //     };
+  //   } catch (error) {
+  //     await session.abortTransaction();
+  //     logger.error('Manual alert creation error:', error);
+  //     throw error;
+  //   } finally {
+  //     session.endSession();
+  //   }
+  // }
+
   static async createManualAlert(
     userId: string,
     responderId: string,
@@ -18,7 +172,7 @@ export class AlertService {
     try {
       session.startTransaction();
       
-      const [longitude, latitude] = location.coordinates;
+      const [latitude, longitude] = location.coordinates;
       
       // 1. Get user details
       const user = await User.findById(userId).session(session);
@@ -41,9 +195,12 @@ export class AlertService {
       // 3. Calculate distance if responder has location
       let distance: number | undefined;
       let routeInfo: any;
+      let isSameLocation = false;
       
       if (responder.currentLocation?.coordinates) {
-        const [respLng, respLat] = responder.currentLocation.coordinates;
+        const [respLat, respLng] = responder.currentLocation.coordinates;
+        console.log("Responder coordinates:", respLat, respLng);
+        console.log("User coordinates:", latitude, longitude);
         
         distance = GeocodingService.calculateDistance(
           latitude,
@@ -52,22 +209,48 @@ export class AlertService {
           respLng
         );
 
-        if (!distance) {
-          throw new Error('Distance calculation failed')
+        console.log("Calculated distance:", distance);
+        
+        if (distance === undefined || distance === null) {
+          throw new Error('Distance calculation failed');
         }
         
+        // Check if distance is effectively 0 (same location)
+        isSameLocation = distance < 0.001; // Less than 1 meter
+        
         // Check if within responder's max distance
-        if (distance > responder.maxDistance) {
+        if (distance > responder.maxDistance && !isSameLocation) {
           throw new Error(`Responder is ${distance.toFixed(1)}km away, outside their maximum range of ${responder.maxDistance}km`);
         }
         
-        // Get route information
-        routeInfo = await GeocodingServiceInstance.getRoute(
-          { latitude: respLat, longitude: respLng },
-          { latitude, longitude },
-          responder.vehicleType === 'car' ? 'driving' : 
-          responder.vehicleType === 'bicycle' ? 'bicycling' : 'walking'
-        );
+        // Only get route info if locations are different
+        if (!isSameLocation && distance > 0) {
+          try {
+            routeInfo = await GeocodingServiceInstance.getRoute(
+              { latitude: respLat, longitude: respLng },
+              { latitude, longitude },
+              responder.vehicleType === 'car' ? 'driving' : 
+              responder.vehicleType === 'bicycle' ? 'bicycling' : 'walking'
+            );
+            
+            if (!routeInfo) {
+              console.warn('Route info could not be retrieved, using fallback estimates');
+              // Create fallback route info based on distance
+              routeInfo = this.createFallbackRouteInfo(distance, responder.vehicleType);
+            }
+          } catch (routeError) {
+            console.warn('Failed to get route info:', routeError);
+            // Create fallback route info
+            routeInfo = this.createFallbackRouteInfo(distance, responder.vehicleType);
+          }
+        } else if (isSameLocation) {
+          // Create immediate arrival route info for same location
+          routeInfo = {
+            distance: { text: '0 km', value: 0 },
+            duration: { text: 'Immediate', value: 0 },
+            polyline: undefined
+          };
+        }
       }
       
       // 4. Geocode the location
@@ -86,7 +269,7 @@ export class AlertService {
             color: 'blue',
           },
         ],
-        16,
+        14,
         '600x400'
       );
       
@@ -106,12 +289,13 @@ export class AlertService {
         assignedResponder: {
           responderId: responder.userId,
           assignedAt: new Date(),
-          status: 'assigned',
+          status: isSameLocation ? 'on-scene' : 'assigned', // If same location, responder is already there
+          acknowledgedAt: isSameLocation ? new Date() : undefined, // Auto-acknowledge if same location
           estimatedDistance: distance,
           routeInfo: routeInfo ? {
             distance: routeInfo.distance,
             duration: routeInfo.duration,
-            estimatedArrival: new Date(Date.now() + routeInfo.duration.value * 1000),
+            estimatedArrival: isSameLocation ? new Date() : new Date(Date.now() + (routeInfo.duration?.value || 0) * 1000),
           } : undefined,
         },
         tracking: {
@@ -123,6 +307,16 @@ export class AlertService {
       // 7. Update responder status
       responder.status = 'busy';
       responder.assignedAlertId = alert[0]._id;
+      
+      // If same location, update responder's location to match alert location
+      if (isSameLocation) {
+        responder.currentLocation = {
+          type: 'Point',
+          coordinates: location.coordinates,
+          updatedAt: new Date(),
+        };
+      }
+      
       await responder.save({ session });
       
       // 8. Save initial location to history
@@ -135,14 +329,30 @@ export class AlertService {
         timestamp: new Date(),
       }], { session });
       
+      // 9. If same location, auto-acknowledge the alert
+      if (isSameLocation) {
+        await Alert.findByIdAndUpdate(
+          alert[0]._id,
+          {
+            $set: {
+              status: 'acknowledged',
+              'assignedResponder.status': 'on-scene',
+              'assignedResponder.acknowledgedAt': new Date(),
+            },
+          },
+          { session }
+        );
+      }
+      
       await session.commitTransaction();
       
-      logger.info(`Manual alert created: ${alert[0]._id} for user ${userId}, assigned to responder ${responderId}`);
+      logger.info(`Manual alert created: ${alert[0]._id} for user ${userId}, assigned to responder ${responderId}, distance: ${distance}km, sameLocation: ${isSameLocation}`);
       
       return {
         alert: alert[0],
         distance,
-        estimatedTime: routeInfo?.duration.text,
+        isSameLocation,
+        estimatedTime: isSameLocation ? 'Immediate' : routeInfo?.duration?.text,
         locationDetails: {
           address: geocodedAddress?.formattedAddress,
           staticMapUrl,
@@ -156,7 +366,40 @@ export class AlertService {
       session.endSession();
     }
   }
+
+  // Add this helper method to create fallback route info
+  private static createFallbackRouteInfo(distance: number, vehicleType?: string): {
+    distance: { text: string; value: number };
+    duration: { text: string; value: number };
+  } {
+    // Average speeds based on vehicle type (km/h)
+    const averageSpeeds: Record<string, number> = {
+      'car': 40,
+      'motorcycle': 50,
+      'bicycle': 15,
+      'foot': 5,
+      'ambulance': 60,
+      'default': 30
+    };
   
+    const speed = averageSpeeds[vehicleType || 'default'] || averageSpeeds.default;
+    const durationHours = distance / speed;
+    const durationMinutes = Math.ceil(durationHours * 60);
+    
+    return {
+      distance: {
+        text: `${distance.toFixed(1)} km`,
+        value: distance * 1000 // Convert to meters
+      },
+      duration: {
+        text: durationMinutes > 60 
+          ? `${Math.ceil(durationHours)} hours`
+          : `${durationMinutes} minutes`,
+        value: durationMinutes * 60 // Convert to seconds
+      }
+    };
+  }
+    
   static async createPanicAlert(
     userId: string,
     location: { coordinates: [number, number]; accuracy: number }
@@ -166,7 +409,7 @@ export class AlertService {
     try {
       session.startTransaction();
       
-      const [longitude, latitude] = location.coordinates;
+      const [latitude, longitude] = location.coordinates;
       
       // 1. Get user details
       const user = await User.findById(userId).session(session);
@@ -222,19 +465,22 @@ export class AlertService {
         latitude,
         longitude,
       });
+
+      console.log("Geocoded Address:", geocodedAddress)
       
+      const zoom = 14
       // 7. Generate static map
       const staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
-        { latitude, longitude },
+        { latitude: parseFloat(latitude as unknown as string), longitude: parseFloat(longitude as unknown as string) },
         [
           {
             coordinates: { latitude, longitude },
-            label: '🚨',
+            label: '📍',
             color: 'red',
           },
         ],
-        16,
-        '600x400'
+        parseInt(zoom as unknown as string),
+        '600x400',
       );
       
       // 8. Create the alert
@@ -269,6 +515,7 @@ export class AlertService {
       
       // 9. Update responder status
       responder.status = 'busy';
+      responder.totalAssignments += 1
       responder.assignedAlertId = alert[0]._id;
       await responder.save({ session });
       
@@ -308,6 +555,78 @@ export class AlertService {
       session.endSession();
     }
   }
+
+  // In createPanicAlert method, add this debug logging:
+  // static async createPanicAlert(
+  //   userId: string,
+  //   location: { coordinates: [number, number]; accuracy: number }
+  // ) {
+  //   const session = await mongoose.startSession();
+    
+  //   try {
+  //     session.startTransaction();
+      
+  //     const [longitude, latitude] = location.coordinates;
+      
+  //     // 1. Get user details
+  //     const user = await User.findById(userId).session(session);
+  //     if (!user) {
+  //       throw new Error('User not found');
+  //     }
+
+  //     console.log('Creating panic alert at coordinates:', { latitude, longitude });
+      
+  //     // 2. First, check if any responders exist at all
+  //     const allResponders = await Responder.find({}).session(session);
+  //     console.log('Total responders in database:', allResponders.length);
+  //     console.log('Responders details:', allResponders.map(r => ({
+  //       id: r._id,
+  //       userId: r.userId,
+  //       status: r.status,
+  //       isVerified: r.isVerified,
+  //       currentLocation: r.currentLocation
+  //     })));
+      
+  //     // 3. Check what findNearestResponders is returning
+  //     console.log('Calling findNearestResponders...');
+  //     const nearestResponders = await GeocodingServiceInstance.findNearestResponders(
+  //       { latitude, longitude },
+  //       100, // Increase max distance to 100km for testing
+  //       10   // Get top 10
+  //     );
+      
+  //     console.log('Nearest responders found:', nearestResponders.length);
+  //     console.log('Nearest responders details:', nearestResponders);
+      
+  //     if (nearestResponders.length === 0) {
+  //       // Check why no responders are found
+  //       const availableResponders = await Responder.find({
+  //         status: 'available',
+  //         isActive: true,
+  //         isVerified: true,
+  //       }).session(session);
+        
+  //       console.log('Available responders in database:', availableResponders.length);
+  //       console.log('Available responders details:', availableResponders.map(r => ({
+  //         id: r._id,
+  //         userId: r.userId,
+  //         status: r.status,
+  //         isVerified: r.isVerified,
+  //         currentLocation: r.currentLocation
+  //       })));
+        
+  //       throw new Error('No responders available in your area');
+  //     }
+      
+  //     // ... rest of your code
+  //   } catch (error) {
+  //     await session.abortTransaction();
+  //     logger.error('Panic alert creation error:', error);
+  //     throw error;
+  //   } finally {
+  //     session.endSession();
+  //   }
+  // }
   
   static async getAvailableResponders(latitude?: number, longitude?: number) {
     try {
