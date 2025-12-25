@@ -60,7 +60,9 @@ export class GeocodingService {
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // Distance in km
+    const distance = R * c
+
+    return Math.round(distance * 100) / 100; // Distance in km
   }
 
   private static degreesToRadians(degrees: number): number {
@@ -95,7 +97,7 @@ export class GeocodingService {
       const respondersWithDistance = responders
         .map(responder => {
           if (responder.currentLocation?.coordinates) {
-            const [longitude, latitude] = responder.currentLocation.coordinates;
+            const [latitude, longitude] = responder.currentLocation.coordinates;
             const distance = GeocodingService.calculateDistance(
               coordinates.latitude,
               coordinates.longitude,
