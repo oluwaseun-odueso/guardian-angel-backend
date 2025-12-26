@@ -9,7 +9,7 @@ const router = Router();
 router.use(authenticate);
 
 // Responder registration & profile
-router.post('/register', ResponderAuthController.register);
+router.post('/register', ResponderAuthController.register); //✅
 router.get('/profile', ResponderAuthController.getProfile);
 router.put('/profile', ResponderAuthController.updateProfile);
 router.get('/stats', ResponderAuthController.getStats);
