@@ -57,25 +57,56 @@ export class AlertController {
   }
   
   // Get available responders
+  // static async getAvailableResponders(req: AuthRequest, res: Response): Promise<Response> {
+  //   try {
+  //     const { lat, lng } = req.query;
+      
+  //     let latitude, longitude;
+  //     if (lat && lng) {
+  //       latitude = parseFloat(lat as string);
+  //       longitude = parseFloat(lng as string);
+  //     }
+      
+  //     const responders = await AlertService.getAvailableResponders(latitude, longitude);
+      
+  //     return ResponseHandler.success(res, responders, 'Available responders retrieved');
+  //   } catch (error: any) {
+  //     logger.error('Get available responders error:', error);
+  //     return ResponseHandler.error(res, 'Failed to get responders');
+  //   }
+  // }
+
   static async getAvailableResponders(req: AuthRequest, res: Response): Promise<Response> {
     try {
-      const { lat, lng } = req.query;
+      const { lat, lng, maxDistance, page, limit, vehicleType } = req.query;
       
       let latitude, longitude;
       if (lat && lng) {
         latitude = parseFloat(lat as string);
         longitude = parseFloat(lng as string);
       }
+
+      console.log('Lat:', lat)
+      console.log("Lng:", lng)
       
-      const responders = await AlertService.getAvailableResponders(latitude, longitude);
+      const options = {
+        maxDistance: maxDistance ? parseFloat(maxDistance as string) : undefined,
+        page: page ? parseInt(page as string) : 1,
+        limit: limit ? parseInt(limit as string) : 20,
+        vehicleType: vehicleType as string,
+      };
       
-      return ResponseHandler.success(res, responders, 'Available responders retrieved');
+      console.log("The request got here")
+      const result = await AlertService.getAvailableResponders(latitude, longitude, options);
+      
+      console.log("The request got here 2")
+      return ResponseHandler.success(res, result, 'Available responders retrieved');
     } catch (error: any) {
       logger.error('Get available responders error:', error);
       return ResponseHandler.error(res, 'Failed to get responders');
     }
   }
-  
+    
   // Get user's alerts
   static async getUserAlerts(req: AuthRequest, res: Response): Promise<Response> {
     try {

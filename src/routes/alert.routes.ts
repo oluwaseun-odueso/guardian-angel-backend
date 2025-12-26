@@ -8,12 +8,12 @@ const router = Router();
 // All alert routes require authentication
 router.use(authenticate);
 
-router.post('/manual', AlertController.createManualAlert);
-router.post('/panic', AlertController.createPanicAlert);
+router.post('/manual', AlertController.createManualAlert); //✅
+router.post('/panic', AlertController.createPanicAlert); //✅
 
 // Alert management
-router.get('/available-responders', AlertController.getAvailableResponders);
-router.get('/user-alerts', AlertController.getUserAlerts);
+router.get('/available-responders', AlertController.getAvailableResponders); //✅
+router.get('/user-alerts', AlertController.getUserAlerts); //✅
 router.get('/tracking/:alertId', AlertController.getLiveTracking);
 
 // Location updates
