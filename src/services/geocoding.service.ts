@@ -317,6 +317,32 @@ export class GeocodingService {
     }
   }
 
+  // getStaticMapUrl(
+  //   coordinates: GeoCoordinates,
+  //   markers?: Array<{
+  //     coordinates: GeoCoordinates;
+  //     label?: string;
+  //     color?: string;
+  //   }>,
+  //   zoom: number = 14,
+  //   size: string = '600x400'
+  // ): string {
+  //   let url = `${this.baseUrl}/staticmap?center=${coordinates.latitude},${coordinates.longitude}&zoom=${zoom}&size=${size}&key=${this.googleApiKey}`;
+    
+  //   if (markers && markers.length > 0) {
+  //     markers.forEach((marker, _index) => {
+  //       const markerParams = [];
+  //       if (marker.color) markerParams.push(`color:${marker.color}`);
+  //       if (marker.label) markerParams.push(`label:${marker.label}`);
+  //       markerParams.push(`${marker.coordinates.latitude},${marker.coordinates.longitude}`);
+        
+  //       url += `&markers=${markerParams.join('|')}`;
+  //     });
+  //   }
+
+  //   return url;
+  // }
+
   getStaticMapUrl(
     coordinates: GeoCoordinates,
     markers?: Array<{
@@ -330,13 +356,23 @@ export class GeocodingService {
     let url = `${this.baseUrl}/staticmap?center=${coordinates.latitude},${coordinates.longitude}&zoom=${zoom}&size=${size}&key=${this.googleApiKey}`;
     
     if (markers && markers.length > 0) {
-      markers.forEach((marker, _index) => {
-        const markerParams = [];
-        if (marker.color) markerParams.push(`color:${marker.color}`);
-        if (marker.label) markerParams.push(`label:${marker.label}`);
-        markerParams.push(`${marker.coordinates.latitude},${marker.coordinates.longitude}`);
-        
-        url += `&markers=${markerParams.join('|')}`;
+      markers.forEach((marker) => {
+        // CHECK FOR VALID COORDINATES
+        if (marker.coordinates && 
+            typeof marker.coordinates.latitude === 'number' && 
+            typeof marker.coordinates.longitude === 'number' &&
+            !isNaN(marker.coordinates.latitude) && 
+            !isNaN(marker.coordinates.longitude)) {
+          
+          const markerParams = [];
+          if (marker.color) markerParams.push(`color:${marker.color}`);
+          if (marker.label) markerParams.push(`label:${marker.label}`);
+          markerParams.push(`${marker.coordinates.latitude},${marker.coordinates.longitude}`);
+          
+          url += `&markers=${markerParams.join('|')}`;
+        } else {
+          console.warn('Skipping invalid marker coordinates:', marker.coordinates);
+        }
       });
     }
 
