@@ -556,127 +556,456 @@ export class AlertService {
     }
   }
 
-  // In createPanicAlert method, add this debug logging:
-  // static async createPanicAlert(
-  //   userId: string,
-  //   location: { coordinates: [number, number]; accuracy: number }
+  // static async getAvailableResponders(
+  //   latitude?: number, 
+  //   longitude?: number,
+  //   options: {
+  //     maxDistance?: number;
+  //     limit?: number;
+  //     page?: number;
+  //     vehicleType?: string;
+  //   } = {}
   // ) {
-  //   const session = await mongoose.startSession();
-    
+  //   // All fields are optional
   //   try {
-  //     session.startTransaction();
+  //     const {
+  //       maxDistance = 10,
+  //       limit = 20,
+  //       page = 1,
+  //       vehicleType
+  //     } = options;
       
-  //     const [longitude, latitude] = location.coordinates;
+  //     const skip = (page - 1) * limit;
       
-  //     // 1. Get user details
-  //     const user = await User.findById(userId).session(session);
-  //     if (!user) {
-  //       throw new Error('User not found');
+  //     let query: any = {
+  //       status: 'available',
+  //       isActive: true,
+  //       isVerified: true,
+  //     };
+      
+  //     // Add vehicle type filter if provided
+  //     if (vehicleType) {
+  //       query.vehicleType = vehicleType;
   //     }
 
-  //     console.log('Creating panic alert at coordinates:', { latitude, longitude });
+  //     console.log('📡 getAvailableResponders called with:', {
+  //       latitude,
+  //       longitude,
+  //       maxDistance,
+  //       vehicleType,
+  //       page,
+  //       limit
+  //     });
       
-  //     // 2. First, check if any responders exist at all
-  //     const allResponders = await Responder.find({}).session(session);
-  //     console.log('Total responders in database:', allResponders.length);
-  //     console.log('Responders details:', allResponders.map(r => ({
-  //       id: r._id,
-  //       userId: r.userId,
-  //       status: r.status,
-  //       isVerified: r.isVerified,
-  //       currentLocation: r.currentLocation
-  //     })));
-      
-  //     // 3. Check what findNearestResponders is returning
-  //     console.log('Calling findNearestResponders...');
-  //     const nearestResponders = await GeocodingServiceInstance.findNearestResponders(
-  //       { latitude, longitude },
-  //       100, // Increase max distance to 100km for testing
-  //       10   // Get top 10
-  //     );
-      
-  //     console.log('Nearest responders found:', nearestResponders.length);
-  //     console.log('Nearest responders details:', nearestResponders);
-      
-  //     if (nearestResponders.length === 0) {
-  //       // Check why no responders are found
-  //       const availableResponders = await Responder.find({
-  //         status: 'available',
-  //         isActive: true,
-  //         isVerified: true,
-  //       }).session(session);
-        
-  //       console.log('Available responders in database:', availableResponders.length);
-  //       console.log('Available responders details:', availableResponders.map(r => ({
+  //     // If location provided, calculate distances and filter
+  //     if (latitude !== undefined && longitude !== undefined) {
+  //       console.log('📍 Location provided, fetching responders...');
+
+  //       const allResponders = await Responder.find(query)
+  //         .populate('userId', 'fullName profileImage rating')
+  //         .lean();
+
+  //       console.log(`📊 Total responders found: ${allResponders.length}`);
+  //       console.log('📋 Responders list:', allResponders.map(r => ({
   //         id: r._id,
-  //         userId: r.userId,
+  //         fullName: r.fullName,
+  //         hasLocation: !!r.currentLocation?.coordinates,
+  //         coordinates: r.currentLocation?.coordinates || 'none',
+  //         maxDistance: r.maxDistance,
   //         status: r.status,
-  //         isVerified: r.isVerified,
-  //         currentLocation: r.currentLocation
+  //         isVerified: r.isVerified
   //       })));
+
+  //       if (allResponders.length === 0) {
+  //         console.log('⚠️ No responders found with query:', query);
+  //         return {
+  //           responders: [],
+  //           pagination: {
+  //             total: 0,
+  //             page,
+  //             limit,
+  //             totalPages: 0,
+  //             hasNextPage: false,
+  //             hasPrevPage: false,
+  //           },
+  //         };
+  //       }
+      
         
-  //       throw new Error('No responders available in your area');
+  //       // Calculate distances and filter
+  //       const respondersWithDistance = allResponders
+  //         .map((responder) => {
+  //           if (!responder.currentLocation?.coordinates) return null;
+            
+  //           const [respLng, respLat] = responder.currentLocation.coordinates;
+  //           const distance = GeocodingService.calculateDistance(
+  //             latitude,
+  //             longitude,
+  //             respLat,
+  //             respLng
+  //           );
+            
+  //           const roundedDistance = Math.round(distance * 100) / 100;
+  //           const isWithinGlobalRange = roundedDistance <= maxDistance;
+  //           const isWithinPersonalRange = roundedDistance <= (responder.maxDistance || 10);
+  //           const isWithinRange = isWithinGlobalRange && isWithinPersonalRange;
+            
+  //           if (!isWithinRange) return null;
+            
+  //           return {
+  //             ...responder,
+  //             distance: roundedDistance,
+  //             isWithinRange,
+  //             formattedDistance: `${roundedDistance.toFixed(1)} km`,
+  //             estimatedArrival: this.estimateArrivalTime(roundedDistance, responder.vehicleType),
+  //           };
+  //         })
+  //         .filter(responder => responder !== null)
+  //         .sort((a, b) => a!.distance - b!.distance);
+        
+  //       // Apply pagination
+  //       const total = respondersWithDistance.length;
+  //       const paginatedResults = respondersWithDistance.slice(skip, skip + limit);
+        
+  //       return {
+  //         responders: paginatedResults,
+  //         pagination: {
+  //           total,
+  //           page,
+  //           limit,
+  //           totalPages: Math.ceil(total / limit),
+  //           hasNextPage: skip + limit < total,
+  //           hasPrevPage: page > 1,
+  //         },
+  //       };
   //     }
       
-  //     // ... rest of your code
-  //   } catch (error) {
-  //     await session.abortTransaction();
-  //     logger.error('Panic alert creation error:', error);
+  //     // No location provided - return all with pagination
+  //     const total = await Responder.countDocuments(query);
+  //     const responders = await Responder.find(query)
+  //       .populate('userId', 'fullName profileImage rating')
+  //       .skip(skip)
+  //       .limit(limit)
+  //       .sort({ rating: -1, createdAt: -1 })
+  //       .lean();
+      
+  //     return {
+  //       responders,
+  //       pagination: {
+  //         total,
+  //         page,
+  //         limit,
+  //         totalPages: Math.ceil(total / limit),
+  //         hasNextPage: skip + limit < total,
+  //         hasPrevPage: page > 1,
+  //       },
+  //     };
+  //   } catch (error: any) {
+  //     logger.error('Get available responders error:', error);
   //     throw error;
-  //   } finally {
-  //     session.endSession();
   //   }
   // }
-  
-  static async getAvailableResponders(latitude?: number, longitude?: number) {
+
+  static async getAvailableResponders(
+    latitude?: number, 
+    longitude?: number,
+    options: {
+      maxDistance?: number;
+      limit?: number;
+      page?: number;
+      vehicleType?: string;
+    } = {}
+  ) {
     try {
+      const {
+        maxDistance = 10,
+        limit = 20,
+        page = 1,
+        vehicleType
+      } = options;
+      
+      const skip = (page - 1) * limit;
+      
       let query: any = {
         status: 'available',
         isActive: true,
         isVerified: true,
       };
       
-      const responders = await Responder.find(query)
-        .populate('userId', 'fullName profileImage')
-        .lean();
+      // Add vehicle type filter if provided
+      if (vehicleType) {
+        query.vehicleType = vehicleType;
+      }
       
-      // If location provided, calculate distances
+      console.log('📡 getAvailableResponders called with:', {
+        latitude,
+        longitude,
+        maxDistance,
+        vehicleType,
+        page,
+        limit
+      });
+      
+      // If location provided, calculate distances and filter
       if (latitude !== undefined && longitude !== undefined) {
-        const respondersWithDistance = await Promise.all(
-          responders.map(async (responder) => {
-            let distance: number | null = null;
-            
-            if (responder.currentLocation?.coordinates) {
-              const [respLng, respLat] = responder.currentLocation.coordinates;
-              distance = GeocodingService.calculateDistance(
-                latitude,
-                longitude,
-                respLat,
-                respLng
-              );
+        console.log('📍 Location provided, fetching responders...');
+        
+        const allResponders = await Responder.find(query)
+          .populate('userId', 'fullName profileImage rating')
+          .lean();
+        
+        console.log(`📊 Total responders found: ${allResponders.length}`);
+        console.log('📋 Responders list:', allResponders.map(r => ({
+          id: r._id,
+          fullName: r.fullName,
+          hasLocation: !!r.currentLocation?.coordinates,
+          coordinates: r.currentLocation?.coordinates || 'none',
+          maxDistance: r.maxDistance,
+          status: r.status,
+          isVerified: r.isVerified
+        })));
+        
+        if (allResponders.length === 0) {
+          console.log('⚠️ No responders found with query:', query);
+          return {
+            responders: [],
+            pagination: {
+              total: 0,
+              page,
+              limit,
+              totalPages: 0,
+              hasNextPage: false,
+              hasPrevPage: false,
+            },
+          };
+        }
+        
+        // Calculate distances and filter
+        const respondersWithDistance = allResponders
+          .map((responder) => {
+            if (!responder.currentLocation?.coordinates) {
+              console.log(`🚫 Responder ${responder._id} has no location`);
+              return null;
             }
+            
+            // IMPORTANT: Check coordinate format
+            const coordinates = responder.currentLocation.coordinates;
+            console.log(`📍 Responder ${responder._id} coordinates:`, coordinates);
+            
+            // Check if coordinates array has exactly 2 elements
+            if (!Array.isArray(coordinates) || coordinates.length !== 2) {
+              console.log(`❌ Invalid coordinates format for responder ${responder._id}:`, coordinates);
+              return null;
+            }
+            
+            const [respLat, respLng] = coordinates;
+            
+            console.log(`📐 Calculating distance for ${responder.fullName}:`);
+            console.log('  User location:', { latitude, longitude });
+            console.log('  Responder location:', { respLat, respLng });
+            
+            // Calculate distance
+            const distance = GeocodingService.calculateDistance(
+              latitude,      // User latitude
+              longitude,     // User longitude
+              respLat,       // Responder latitude
+              respLng        // Responder longitude
+            );
+            
+            console.log(`  Calculated distance: ${distance} km`);
+            
+            const roundedDistance = Math.round(distance * 100) / 100;
+            console.log(`  Rounded distance: ${roundedDistance} km`);
+            
+            const isWithinGlobalRange = roundedDistance <= maxDistance;
+            const isWithinPersonalRange = roundedDistance <= (responder.maxDistance || 10);
+            const isWithinRange = isWithinGlobalRange && isWithinPersonalRange;
+            
+            console.log(`  Range check - Global (${maxDistance}km): ${isWithinGlobalRange}, Personal (${responder.maxDistance || 10}km): ${isWithinPersonalRange}, Within Range: ${isWithinRange}`);
+            
+            if (!isWithinRange) {
+              console.log(`  ❌ Responder ${responder.fullName} is out of range`);
+              return null;
+            }
+            
+            console.log(`  ✅ Responder ${responder.fullName} is within range!`);
             
             return {
               ...responder,
-              distance,
-              isWithinRange: distance !== null && distance <= (responder.maxDistance || 10),
+              distance: roundedDistance,
+              isWithinRange,
+              formattedDistance: roundedDistance === 0 ? 'At location' : `${roundedDistance.toFixed(1)} km`,
+              estimatedArrival: this.estimateArrivalTime(roundedDistance, responder.vehicleType),
+              coordinates: {
+                latitude: respLat,
+                longitude: respLng
+              }
             };
           })
-        );
+          .filter(responder => responder !== null)
+          .sort((a, b) => a!.distance - b!.distance);
         
-        return respondersWithDistance.sort((a: { distance: number | null; }, b: { distance: number | null; }) => {
-          if (a.distance === null) return 1;
-          if (b.distance === null) return -1;
-          return a.distance - b.distance;
-        });
+        console.log(`✅ Filtered responders within ${maxDistance}km: ${respondersWithDistance.length}`);
+        
+        // Apply pagination
+        const total = respondersWithDistance.length;
+        const paginatedResults = respondersWithDistance.slice(skip, skip + limit);
+        
+        return {
+          responders: paginatedResults,
+          pagination: {
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+            hasNextPage: skip + limit < total,
+            hasPrevPage: page > 1,
+          },
+        };
       }
       
-      return responders;
+      // No location provided - return all with pagination
+      console.log('🌍 No location provided, returning all responders');
+      
+      const total = await Responder.countDocuments(query);
+      console.log(`📊 Total responders in database: ${total}`);
+      
+      const responders = await Responder.find(query)
+        .populate('userId', 'fullName profileImage rating')
+        .skip(skip)
+        .limit(limit)
+        .sort({ rating: -1, createdAt: -1 })
+        .lean();
+      
+      console.log(`📤 Returning ${responders.length} responders`);
+      
+      return {
+        responders,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNextPage: skip + limit < total,
+          hasPrevPage: page > 1,
+        },
+      };
     } catch (error: any) {
+      console.error('❌ Get available responders error:', error);
       logger.error('Get available responders error:', error);
       throw error;
     }
   }
+
+  // Helper method to estimate arrival time
+  private static estimateArrivalTime(distance: number, vehicleType?: string): string {
+    const speeds: Record<string, number> = {
+      'car': 40,
+      'motorcycle': 50,
+      'bicycle': 15,
+      'foot': 5,
+      'ambulance': 60,
+      'default': 30
+    };
+    
+    const speed = speeds[vehicleType || 'default'] || speeds.default;
+    const hours = distance / speed;
+    
+    if (hours < 0.0167) { // Less than 1 minute
+      return 'Immediate';
+    } else if (hours < 1) {
+      const minutes = Math.ceil(hours * 60);
+      return `${minutes} min`;
+    } else {
+      return `${hours.toFixed(1)} hours`;
+    }
+  }
+
+  // Add this test method temporarily
+  static testDistanceCalculation() {
+    // Test with same coordinates (should return 0)
+    const sameLocationDistance = GeocodingService.calculateDistance(
+      53.0057533,
+      -2.2207718,
+      53.0057533,
+      -2.2207718
+    );
+    console.log('Same location distance (should be 0):', sameLocationDistance);
+    
+    // Test with nearby coordinates
+    const nearbyDistance = GeocodingService.calculateDistance(
+      53.0057533,
+      -2.2207718,
+      53.0157533, // 1.11 km north
+      -2.2207718
+    );
+    console.log('Nearby location distance (~1.11km):', nearbyDistance);
+    
+    // Test coordinate order
+    const reversedDistance = GeocodingService.calculateDistance(
+      -2.2207718, // Swapped lat/lng
+      53.0057533, // Swapped lat/lng
+      53.0057533,
+      -2.2207718
+    );
+    console.log('Reversed coordinates distance:', reversedDistance);
+    
+    return {
+      sameLocationDistance,
+      nearbyDistance,
+      reversedDistance
+    };
+  }
+  
+  // static async getAvailableResponders(latitude?: number, longitude?: number) {
+  //   try {
+  //     let query: any = {
+  //       status: 'available',
+  //       isActive: true,
+  //       isVerified: true,
+  //     };
+      
+  //     const responders = await Responder.find(query)
+  //       .populate('userId', 'fullName profileImage')
+  //       .lean();
+      
+  //     // If location provided, calculate distances
+  //     if (latitude !== undefined && longitude !== undefined) {
+  //       const respondersWithDistance = await Promise.all(
+  //         responders.map(async (responder) => {
+  //           let distance: number | null = null;
+            
+  //           if (responder.currentLocation?.coordinates) {
+  //             const [respLng, respLat] = responder.currentLocation.coordinates;
+  //             distance = GeocodingService.calculateDistance(
+  //               latitude,
+  //               longitude,
+  //               respLat,
+  //               respLng
+  //             );
+  //           }
+            
+  //           return {
+  //             ...responder,
+  //             distance,
+  //             isWithinRange: distance !== null && distance <= (responder.maxDistance || 10),
+  //           };
+  //         })
+  //       );
+        
+  //       return respondersWithDistance.sort((a: { distance: number | null; }, b: { distance: number | null; }) => {
+  //         if (a.distance === null) return 1;
+  //         if (b.distance === null) return -1;
+  //         return a.distance - b.distance;
+  //       });
+  //     }
+      
+  //     return responders;
+  //   } catch (error: any) {
+  //     logger.error('Get available responders error:', error);
+  //     throw error;
+  //   }
+  // }
   
   static async acknowledgeAlert(alertId: string, responderId: string) {
     const session = await mongoose.startSession();
@@ -994,6 +1323,8 @@ export class AlertService {
       if (!alert) {
         throw new Error('Alert not found');
       }
+
+      console.log("Alert:", alert)
       
       // Check permissions
       const isUser = alert.userId._id.toString() === userId;
@@ -1011,20 +1342,28 @@ export class AlertService {
       
       // User location
       if (alert.tracking.lastUserLocation) {
-        const [lng, lat] = alert.tracking.lastUserLocation;
+        const [lat, lng] = alert.tracking.lastUserLocation;
+        console.log("A Latitude:", lat)
+        console.log("A Longitude:", lng)
+        
         
         const address = await GeocodingServiceInstance.reverseGeocode({ latitude: lat, longitude: lng });
-        
+        console.log("Geocoded address:", address)
+
         result.userLocation = {
           coordinates: alert.tracking.lastUserLocation,
           address: address?.formattedAddress,
           accuracy: alert.location.accuracy,
         };
+        
+        console.log("User Location:", result.userLocation)
       }
       
       // Responder location
       if (alert.tracking.lastResponderLocation) {
-        const [lng, lat] = alert.tracking.lastResponderLocation;
+        const [lat, lng] = alert.tracking.lastResponderLocation;
+        console.log("B Latitude:", lat)
+        console.log("B Longitude:", lng)
         
         const address = await GeocodingServiceInstance.reverseGeocode({ latitude: lat, longitude: lng });
         
@@ -1036,13 +1375,16 @@ export class AlertService {
         
         // Calculate distance
         if (result.userLocation?.coordinates) {
-          const [userLng, userLat] = result.userLocation.coordinates;
+          const [userLat, userLng] = result.userLocation.coordinates;
           const distance = GeocodingService.calculateDistance(
             userLat,
             userLng,
             lat,
             lng
           );
+
+          console.log("C User Latitude:", userLat)
+          console.log("C User Longitude:", userLng)
           
           result.distance = distance;
           
@@ -1065,16 +1407,19 @@ export class AlertService {
       
       // Generate map
       if (result.userLocation?.coordinates) {
-        const [lng, lat] = result.userLocation.coordinates;
+        const [lat, lng] = result.userLocation.coordinates;
         
         const markers = [{
           coordinates: { latitude: lat, longitude: lng },
           label: 'U',
           color: 'blue',
         }];
+
+        console.log("D Latitude:", lat)
+        console.log("D Longitude:", lng)
         
         if (result.responderLocation?.coordinates) {
-          const [respLng, respLat] = result.responderLocation.coordinates;
+          const [respLat, respLng] = result.responderLocation.coordinates;
           markers.push({
             coordinates: { latitude: respLat, longitude: respLng },
             label: 'R',
@@ -1096,6 +1441,172 @@ export class AlertService {
       throw error;
     }
   }
+
+  // static async getLiveTracking(alertId: string, userId: string) {
+  //   try {
+  //     const alert = await Alert.findById(alertId)
+  //       .populate('userId', 'fullName phone')
+  //       .populate('assignedResponder.responderId', 'fullName phone vehicleType');
+      
+  //     if (!alert) {
+  //       throw new Error('Alert not found');
+  //     }
+
+  //     console.log("Alert tracking data:", {
+  //       lastUserLocation: alert.tracking.lastUserLocation,
+  //       lastResponderLocation: alert.tracking.lastResponderLocation,
+  //       hasResponderLocation: alert.tracking.lastResponderLocation && 
+  //                             alert.tracking.lastResponderLocation.length === 2
+  //     });
+      
+  //     // Check permissions
+  //     const isUser = alert.userId._id.toString() === userId;
+  //     const isResponder = alert.assignedResponder?.responderId?._id.toString() === userId;
+      
+  //     if (!isUser && !isResponder) {
+  //       throw new Error('Not authorized to view this alert');
+  //     }
+      
+  //     const result: any = {
+  //       alertId,
+  //       status: alert.status,
+  //       lastUpdated: alert.tracking.lastUpdated,
+  //     };
+      
+  //     // User location
+  //     if (alert.tracking.lastUserLocation && alert.tracking.lastUserLocation.length === 2) {
+  //       const [lat, lng] = alert.tracking.lastUserLocation;
+  //       console.log("User location coordinates:", { lat, lng });
+        
+  //       try {
+  //         const address = await GeocodingServiceInstance.reverseGeocode({ 
+  //           latitude: lat, 
+  //           longitude: lng 
+  //         });
+          
+  //         result.userLocation = {
+  //           coordinates: alert.tracking.lastUserLocation,
+  //           address: address?.formattedAddress || alert.location.address,
+  //           accuracy: alert.location.accuracy,
+  //         };
+  //       } catch (geocodeError) {
+  //         console.warn('Geocoding user location failed:', geocodeError);
+  //         result.userLocation = {
+  //           coordinates: alert.tracking.lastUserLocation,
+  //           address: alert.location.address,
+  //           accuracy: alert.location.accuracy,
+  //         };
+  //       }
+  //     }
+      
+  //     // Responder location - CHECK FOR VALID ARRAY
+  //     const hasResponderLocation = alert.tracking.lastResponderLocation && 
+  //                                 Array.isArray(alert.tracking.lastResponderLocation) && 
+  //                                 alert.tracking.lastResponderLocation.length === 2;
+      
+  //     console.log("Has responder location:", hasResponderLocation);
+      
+  //     if (hasResponderLocation) {
+  //       const [lat, lng] = alert.tracking.lastResponderLocation;
+  //       console.log("Responder location coordinates:", { lat, lng });
+        
+  //       try {
+  //         const address = await GeocodingServiceInstance.reverseGeocode({ 
+  //           latitude: lat, 
+  //           longitude: lng 
+  //         });
+          
+  //         result.responderLocation = {
+  //           coordinates: alert.tracking.lastResponderLocation,
+  //           address: address?.formattedAddress,
+  //           accuracy: 15,
+  //         };
+  //       } catch (geocodeError) {
+  //         console.warn('Geocoding responder location failed:', geocodeError);
+  //         result.responderLocation = {
+  //           coordinates: alert.tracking.lastResponderLocation,
+  //           address: null,
+  //           accuracy: 15,
+  //         };
+  //       }
+        
+  //       // Calculate distance if both locations exist
+  //       if (result.userLocation?.coordinates) {
+  //         const [userLat, userLng] = result.userLocation.coordinates;
+  //         const distance = GeocodingService.calculateDistance(
+  //           userLat,
+  //           userLng,
+  //           lat,
+  //           lng
+  //         );
+          
+  //         result.distance = distance;
+          
+  //         // Estimate arrival time
+  //         if (alert.assignedResponder?.responderId?.vehicleType) {
+  //           const vehicleType = alert.assignedResponder.responderId.vehicleType;
+  //           const avgSpeed = this.getAverageSpeed(vehicleType);
+            
+  //           if (avgSpeed > 0 && distance > 0) {
+  //             const estimatedMinutes = Math.ceil((distance / avgSpeed) * 60);
+  //             result.estimatedArrival = estimatedMinutes <= 60 
+  //               ? `${estimatedMinutes} minutes`
+  //               : `${Math.ceil(distance / avgSpeed)} hours`;
+  //           } else if (distance === 0) {
+  //             result.estimatedArrival = 'Immediate';
+  //           }
+  //         }
+  //       }
+  //     } else {
+  //       console.log("No valid responder location available");
+  //       result.responderLocation = null;
+  //     }
+      
+  //     // Generate map - ONLY if user location exists
+  //     if (result.userLocation?.coordinates && result.userLocation.coordinates.length === 2) {
+  //       const [lat, lng] = result.userLocation.coordinates;
+        
+  //       const markers = [{
+  //         coordinates: { latitude: lat, longitude: lng },
+  //         label: 'U',
+  //         color: 'blue',
+  //       }];
+        
+  //       // Add responder marker ONLY if valid coordinates exist
+  //       if (hasResponderLocation && alert.tracking.lastResponderLocation.length === 2) {
+  //         const [respLat, respLng] = alert.tracking.lastResponderLocation;
+  //         console.log("Adding responder marker with coordinates:", { respLat, respLng });
+          
+  //         markers.push({
+  //           coordinates: { latitude: respLat, longitude: respLng },
+  //           label: 'R',
+  //           color: 'green',
+  //         });
+  //       } else {
+  //         console.log("Skipping responder marker - no valid coordinates");
+  //       }
+        
+  //       try {
+  //         result.staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
+  //           { latitude: lat, longitude: lng },
+  //           markers,
+  //           14,
+  //           '600x400'
+  //         );
+  //         console.log("Generated map URL:", result.staticMapUrl);
+  //       } catch (mapError) {
+  //         console.warn('Failed to generate map URL:', mapError);
+  //         result.staticMapUrl = null;
+  //       }
+  //     }
+      
+  //     return result;
+  //   } catch (error: any) {
+  //     console.error('Get live tracking error:', error);
+  //     logger.error('Get live tracking error:', error);
+  //     throw error;
+  //   }
+  // }
   
   static async getUserAlerts(userId: string, status?: string) {
     try {
