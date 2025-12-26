@@ -70,6 +70,42 @@ export interface EnrichedLocation {
   };
 }
 
+export interface TrustedLocationInput {
+  name: string;
+  address?: string;              // For frontend address input
+  coordinates?: [number, number]; // For frontend coordinate input
+  radius?: number;
+  isHome?: boolean;
+  isWork?: boolean;
+  notes?: string;
+}
+
+export interface TrustedLocationResult {
+  _id: string;
+  name: string;
+  coordinates: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+  address: {
+    formatted: string;
+    street?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+    neighborhood?: string;
+    placeId?: string;
+  };
+  radius: number;
+  isHome: boolean;
+  isWork: boolean;
+  notes?: string;
+  createdAt: Date;
+  distanceFromCurrent?: number; // For sorting
+  staticMapUrl?: string;        // Optional: map thumbnail
+}
+
 export class LocationService {
   static async updateUserLocation(data: LocationUpdate): Promise<EnrichedLocation> {
     const session = await mongoose.startSession();
