@@ -30,7 +30,7 @@ export const AuthSchemas = {
     password: Joi.string().min(8).required(),
     fullName: Joi.string().required().trim(),
     phone: Joi.string().required().trim(),
-    role: Joi.string().valid('user', 'admin', 'responder').default('user'),
+    // role: Joi.string().valid('user', 'admin', 'responder').default('user'),
   }),
 
   login: Joi.object({
