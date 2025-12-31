@@ -55,55 +55,74 @@ export class AlertController {
       return ResponseHandler.error(res, error.message, 400);
     }
   }
-  
-  // Get available responders
+
   // static async getAvailableResponders(req: AuthRequest, res: Response): Promise<Response> {
   //   try {
-  //     const { lat, lng } = req.query;
+  //     const { lat, lng, maxDistance, page, limit, vehicleType } = req.query;
       
   //     let latitude, longitude;
   //     if (lat && lng) {
   //       latitude = parseFloat(lat as string);
   //       longitude = parseFloat(lng as string);
   //     }
+
+  //     console.log('Lat:', lat)
+  //     console.log("Lng:", lng)
       
-  //     const responders = await AlertService.getAvailableResponders(latitude, longitude);
+  //     const options = {
+  //       maxDistance: maxDistance ? parseFloat(maxDistance as string) : undefined,
+  //       page: page ? parseInt(page as string) : 1,
+  //       limit: limit ? parseInt(limit as string) : 20,
+  //       vehicleType: vehicleType as string,
+  //     };
       
-  //     return ResponseHandler.success(res, responders, 'Available responders retrieved');
+  //     console.log("The request got here")
+  //     const result = await AlertService.getAvailableResponders(latitude, longitude, options);
+      
+  //     console.log("The request got here 2")
+  //     return ResponseHandler.success(res, result, 'Available responders retrieved');
   //   } catch (error: any) {
   //     logger.error('Get available responders error:', error);
   //     return ResponseHandler.error(res, 'Failed to get responders');
   //   }
   // }
 
-  static async getAvailableResponders(req: AuthRequest, res: Response): Promise<Response> {
+  static async getNearbyMedicalFacilities(req: AuthRequest, res: Response): Promise<Response> {
     try {
-      const { lat, lng, maxDistance, page, limit, vehicleType } = req.query;
+      const { 
+        lat, 
+        lng, 
+        maxDistance = 10,
+        page = 1,
+        limit = 20,
+        onlyRegistered = 'false',
+        autoRegister = 'true',
+      } = req.query;
       
-      let latitude, longitude;
-      if (lat && lng) {
-        latitude = parseFloat(lat as string);
-        longitude = parseFloat(lng as string);
+      if (!lat || !lng) {
+        return ResponseHandler.error(res, 'Latitude and longitude are required', 400);
       }
-
-      console.log('Lat:', lat)
-      console.log("Lng:", lng)
       
-      const options = {
-        maxDistance: maxDistance ? parseFloat(maxDistance as string) : undefined,
-        page: page ? parseInt(page as string) : 1,
-        limit: limit ? parseInt(limit as string) : 20,
-        vehicleType: vehicleType as string,
-      };
+      const latitude = parseFloat(lat as string);
+      const longitude = parseFloat(lng as string);
       
-      console.log("The request got here")
-      const result = await AlertService.getAvailableResponders(latitude, longitude, options);
+      console.log("A")
+      const result = await AlertService.getNearbyMedicalFacilities(
+        latitude,
+        longitude,
+        {
+          maxDistance: parseFloat(maxDistance as string),
+          page: parseInt(page as string),
+          limit: parseInt(limit as string),
+          onlyRegistered: onlyRegistered === 'true',
+          autoRegister: autoRegister === 'true',
+        }
+      );
       
-      console.log("The request got here 2")
-      return ResponseHandler.success(res, result, 'Available responders retrieved');
+      return ResponseHandler.success(res, result, 'Nearby medical facilities retrieved');
     } catch (error: any) {
-      logger.error('Get available responders error:', error);
-      return ResponseHandler.error(res, 'Failed to get responders');
+      logger.error('Get nearby medical facilities error:', error);
+      return ResponseHandler.error(res, 'Failed to get medical facilities');
     }
   }
     
