@@ -12,7 +12,9 @@ router.post('/manual', AlertController.createManualAlert); //✅
 router.post('/panic', AlertController.createPanicAlert); //✅
 
 // Alert management
-router.get('/available-responders', AlertController.getAvailableResponders); //✅
+// router.get('/available-responders', AlertController.getAvailableResponders); //✅
+router.get('/available-responders', AlertController.getNearbyMedicalFacilities); //✅
+
 router.get('/user-alerts', AlertController.getUserAlerts); //✅
 router.get('/tracking/:alertId', AlertController.getLiveTracking);
 

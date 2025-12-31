@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
-import GeocodingService from './geocoding.service';
+import { GeocodingService } from './geocoding.service';
+import GeocodingServiceInstance from '../services/geocoding.service';
 import LocationHistory from '../models/locationHistory.model';
 import User from '../models/user.model';
 import Alert from '../models/alert.model';
@@ -204,13 +205,13 @@ export class LocationService {
     
     try {
       // 1. Reverse geocode to get address
-      const geocodingResult = await GeocodingService.reverseGeocode({
+      const geocodingResult = await GeocodingServiceInstance.reverseGeocode({
         latitude,
         longitude,
       });
 
       // 2. Get static map URL for visualization
-      const staticMapUrl = GeocodingService.getStaticMapUrl(
+      const staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
         { latitude, longitude },
         [
           {
@@ -226,13 +227,13 @@ export class LocationService {
       // 3. Get nearby emergency services (async - don't wait if slow)
       let nearbyEmergencyServices;
       try {
-        const hospitalsPromise = GeocodingService.getNearbyPlaces(
+        const hospitalsPromise = GeocodingServiceInstance.getNearbyPlaces(
           { latitude, longitude },
           2000, // 2km radius
           'hospital'
         );
 
-        const policePromise = GeocodingService.getNearbyPlaces(
+        const policePromise = GeocodingServiceInstance.getNearbyPlaces(
           { latitude, longitude },
           2000,
           'police'
@@ -697,7 +698,7 @@ export class LocationService {
       const [startLng, startLat] = startCoordinates;
       const [endLng, endLat] = endCoordinates;
 
-      const route = await GeocodingService.getRoute(
+      const route = await GeocodingServiceInstance.getRoute(
         { latitude: startLat, longitude: startLng },
         { latitude: endLat, longitude: endLng },
         mode
@@ -708,7 +709,7 @@ export class LocationService {
       }
 
       // Generate route map
-      const staticMapUrl = GeocodingService.getStaticMapUrl(
+      const staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
         { latitude: startLat, longitude: startLng },
         [
           { coordinates: { latitude: startLat, longitude: startLng }, label: 'A', color: 'green' },
@@ -894,6 +895,473 @@ export class LocationService {
     } catch (error: any) {
       logger.error('Get location analytics error:', error);
       throw error;
+    }
+  }
+
+
+
+
+
+
+
+
+  ///// TRUSTED LOCATION SERVICE METHODS
+
+
+  static async addTrustedLocation(
+    userId: string,
+    data: TrustedLocationInput
+  ): Promise<TrustedLocationResult> {
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      let coordinates: [number, number];
+      let addressData: any;
+
+      // CASE 1: Address provided (needs geocoding)
+      if (data.address && !data.coordinates) {
+        console.log('Geocoding address:', data.address);
+        
+        const geocodeResult = await GeocodingServiceInstance.geocodeAddress(data.address);
+        if (!geocodeResult) {
+          throw new Error('Could not geocode the provided address');
+        }
+        
+        coordinates = [geocodeResult.longitude, geocodeResult.latitude];
+        addressData = await this.getAddressDetails(geocodeResult.latitude, geocodeResult.longitude);
+      }
+      // CASE 2: Coordinates provided (needs reverse geocoding)
+      else if (data.coordinates && !data.address) {
+        console.log('Reverse geocoding coordinates:', data.coordinates);
+        
+        const [longitude, latitude] = data.coordinates;
+        coordinates = [longitude, latitude];
+        addressData = await this.getAddressDetails(latitude, longitude);
+      }
+      // CASE 3: Both provided (use coordinates, validate address)
+      else if (data.coordinates && data.address) {
+        console.log('Both coordinates and address provided, using coordinates');
+        
+        const [longitude, latitude] = data.coordinates;
+        coordinates = [longitude, latitude];
+        
+        // Still get address details for consistency
+        addressData = await this.getAddressDetails(latitude, longitude);
+      }
+      else {
+        throw new Error('Either address or coordinates must be provided');
+      }
+
+      // Validate coordinates
+      this.validateCoordinates(coordinates);
+
+      // Check for duplicate locations (within 50 meters)
+      const isDuplicate = await this.isDuplicateLocation(
+        userId,
+        coordinates,
+        data.name
+      );
+      
+      if (isDuplicate) {
+        throw new Error('A similar trusted location already exists');
+      }
+
+      // Generate static map URL for thumbnail
+      const staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
+        { latitude: coordinates[1], longitude: coordinates[0] },
+        [
+          {
+            coordinates: { latitude: coordinates[1], longitude: coordinates[0] },
+            label: '🏠',
+            color: 'green',
+          },
+        ],
+        15,
+        '300x200'
+      );
+
+      // Prepare the new location object
+      const newLocation = {
+        name: data.name,
+        coordinates: {
+          type: 'Point' as const,
+          coordinates: coordinates,
+        },
+        address: {
+          formatted: addressData.formattedAddress,
+          street: addressData.street,
+          city: addressData.city,
+          state: addressData.state,
+          country: addressData.country,
+          postalCode: addressData.postalCode,
+          neighborhood: addressData.neighborhood,
+          placeId: addressData.placeId,
+        },
+        radius: data.radius || 100,
+        isHome: data.isHome || false,
+        isWork: data.isWork || false,
+        notes: data.notes,
+        staticMapUrl: staticMapUrl,
+      };
+
+      // Update user's trusted locations
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+          $push: {
+            'settings.trustedLocations': newLocation,
+          },
+        },
+        { new: true, runValidators: true }
+      );
+
+      if (!updatedUser) {
+        throw new Error('Failed to add trusted location');
+      }
+
+      // Return the newly added location
+      const addedLocation = updatedUser.settings.trustedLocations[
+        updatedUser.settings.trustedLocations.length - 1
+      ];
+
+      return {
+        _id: addedLocation._id.toString(),
+        name: addedLocation.name,
+        coordinates: addedLocation.coordinates,
+        address: addedLocation.address,
+        radius: addedLocation.radius,
+        isHome: addedLocation.isHome,
+        isWork: addedLocation.isWork,
+        notes: addedLocation.notes,
+        createdAt: addedLocation.createdAt,
+        staticMapUrl: staticMapUrl,
+      };
+
+    } catch (error: any) {
+      logger.error('Add trusted location error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all trusted locations for a user
+   * Optional: sort by distance from current location
+   */
+  static async getTrustedLocations(
+    userId: string,
+    currentLocation?: { latitude: number; longitude: number }
+  ): Promise<TrustedLocationResult[]> {
+    try {
+      const user = await User.findById(userId).select('settings.trustedLocations');
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const locations = user.settings.trustedLocations.map(loc => ({
+        _id: loc._id.toString(),
+        name: loc.name,
+        coordinates: loc.coordinates,
+        address: loc.address,
+        radius: loc.radius,
+        isHome: loc.isHome,
+        isWork: loc.isWork,
+        notes: loc.notes,
+        createdAt: loc.createdAt,
+        distanceFromCurrent: currentLocation
+          ? GeocodingService.calculateDistance(
+              currentLocation.latitude,
+              currentLocation.longitude,
+              loc.coordinates.coordinates[1],
+              loc.coordinates.coordinates[0]
+            )
+          : undefined,
+      }));
+
+      // Sort by distance if current location provided
+      if (currentLocation) {
+        locations.sort((a, b) => {
+          if (a.distanceFromCurrent === undefined) return 1;
+          if (b.distanceFromCurrent === undefined) return -1;
+          return a.distanceFromCurrent - b.distanceFromCurrent;
+        });
+      }
+
+      return locations;
+    } catch (error: any) {
+      logger.error('Get trusted locations error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Search for addresses (for frontend autocomplete)
+   */
+  static async searchAddresses(query: string): Promise<Array<{
+    formattedAddress: string;
+    placeId: string;
+    coordinates: { latitude: number; longitude: number };
+    addressComponents: {
+      street?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      postalCode?: string;
+      neighborhood?: string;
+    };
+  }>> {
+    try {
+      // This would integrate with Google Places API for autocomplete
+      // For now, we'll use geocoding as a fallback
+      const geocodeResult = await GeocodingServiceInstance.geocodeAddress(query);
+      
+      if (!geocodeResult) {
+        return [];
+      }
+
+      const addressDetails = await this.getAddressDetails(
+        geocodeResult.latitude,
+        geocodeResult.longitude
+      );
+
+      return [{
+        formattedAddress: addressDetails.formattedAddress,
+        placeId: addressDetails.placeId || '',
+        coordinates: {
+          latitude: geocodeResult.latitude,
+          longitude: geocodeResult.longitude,
+        },
+        addressComponents: {
+          street: addressDetails.street,
+          city: addressDetails.city,
+          state: addressDetails.state,
+          country: addressDetails.country,
+          postalCode: addressDetails.postalCode,
+          neighborhood: addressDetails.neighborhood,
+        },
+      }];
+    } catch (error) {
+      logger.error('Search addresses error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Helper: Get detailed address from coordinates
+   */
+  private static async getAddressDetails(
+    latitude: number,
+    longitude: number
+  ): Promise<any> {
+    const addressData = await GeocodingServiceInstance.reverseGeocode({
+      latitude,
+      longitude,
+    });
+
+    if (!addressData) {
+      throw new Error('Could not get address details for coordinates');
+    }
+
+    return addressData;
+  }
+
+  /**
+   * Helper: Validate coordinates
+   */
+  private static validateCoordinates(coordinates: [number, number]): void {
+    const [longitude, latitude] = coordinates;
+    
+    if (longitude < -180 || longitude > 180) {
+      throw new Error('Longitude must be between -180 and 180');
+    }
+    
+    if (latitude < -90 || latitude > 90) {
+      throw new Error('Latitude must be between -90 and 90');
+    }
+  }
+
+  /**
+   * Helper: Check for duplicate locations
+   */
+  private static async isDuplicateLocation(
+    userId: string,
+    coordinates: [number, number],
+    name: string
+  ): Promise<boolean> {
+    const user = await User.findById(userId).select('settings.trustedLocations');
+    
+    if (!user || !user.settings.trustedLocations) {
+      return false;
+    }
+
+    const duplicateThreshold = 0.05; // ~50 meters in decimal degrees
+
+    return user.settings.trustedLocations.some(location => {
+      // Check by name
+      if (location.name.toLowerCase() === name.toLowerCase()) {
+        return true;
+      }
+
+      // Check by proximity (if coordinates exist)
+      if (location.coordinates?.coordinates) {
+        const [lng1, lat1] = location.coordinates.coordinates;
+        const [lng2, lat2] = coordinates;
+        
+        const distance = GeocodingService.calculateDistance(lat1, lng1, lat2, lng2);
+        return distance < duplicateThreshold;
+      }
+
+      return false;
+    });
+  }
+
+  static async updateTrustedLocation(
+    userId: string,
+    locationId: string,
+    updates: Partial<TrustedLocationInput>
+  ): Promise<TrustedLocationResult> {
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const locationIndex = user.settings.trustedLocations.findIndex(
+        loc => loc._id.toString() === locationId
+      );
+
+      if (locationIndex === -1) {
+        throw new Error('Trusted location not found');
+      }
+
+      const location = user.settings.trustedLocations[locationIndex];
+      const updateData: any = { ...updates };
+
+      // If address changed, need to re-geocode
+      if (updates.address && updates.address !== location.address.formatted) {
+        const geocodeResult = await GeocodingServiceInstance.geocodeAddress(updates.address);
+        if (!geocodeResult) {
+          throw new Error('Could not geocode the new address');
+        }
+        
+        updateData.coordinates = [geocodeResult.longitude, geocodeResult.latitude];
+        
+        const addressData = await this.getAddressDetails(
+          geocodeResult.latitude,
+          geocodeResult.longitude
+        );
+        
+        updateData.address = {
+          formatted: addressData.formattedAddress,
+          street: addressData.street,
+          city: addressData.city,
+          state: addressData.state,
+          country: addressData.country,
+          postalCode: addressData.postalCode,
+          neighborhood: addressData.neighborhood,
+          placeId: addressData.placeId,
+        };
+      }
+
+      // Apply updates
+      Object.assign(location, updateData);
+
+      await user.save();
+
+      return {
+        _id: location._id.toString(),
+        name: location.name,
+        coordinates: location.coordinates,
+        address: location.address,
+        radius: location.radius,
+        isHome: location.isHome,
+        isWork: location.isWork,
+        notes: location.notes,
+        createdAt: location.createdAt,
+      };
+    } catch (error: any) {
+      logger.error('Update trusted location error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a trusted location
+   */
+  static async deleteTrustedLocation(
+    userId: string,
+    locationId: string
+  ): Promise<boolean> {
+    try {
+      const result = await User.findByIdAndUpdate(
+        userId,
+        {
+          $pull: {
+            'settings.trustedLocations': { _id: locationId },
+          },
+        },
+        { new: true }
+      );
+
+      return !!result;
+    } catch (error: any) {
+      logger.error('Delete trusted location error:', error);
+      throw error;
+    }
+  }
+
+  static async isAtTrustedLocation(
+    userId: string,
+    coordinates: [number, number]
+  ): Promise<{
+    isAtTrustedLocation: boolean;
+    locationName?: string;
+    trustedLocation?: TrustedLocationResult;
+    distance?: number;
+  }> {
+    try {
+      const user = await User.findById(userId).select('settings.trustedLocations');
+      if (!user || !user.settings.trustedLocations) {
+        return { isAtTrustedLocation: false };
+      }
+
+      const [longitude, latitude] = coordinates;
+
+      for (const location of user.settings.trustedLocations) {
+        if (!location.coordinates?.coordinates) continue;
+
+        const [locLng, locLat] = location.coordinates.coordinates;
+        const distance = GeocodingService.calculateDistance(latitude, longitude, locLat, locLng);
+        
+        // Convert radius from meters to kilometers
+        const radiusKm = location.radius / 1000;
+        
+        if (distance <= radiusKm) {
+          return {
+            isAtTrustedLocation: true,
+            locationName: location.name,
+            trustedLocation: {
+              _id: location._id.toString(),
+              name: location.name,
+              coordinates: location.coordinates,
+              address: location.address,
+              radius: location.radius,
+              isHome: location.isHome,
+              isWork: location.isWork,
+              notes: location.notes,
+              createdAt: location.createdAt,
+            },
+            distance: distance * 1000, // Return in meters
+          };
+        }
+      }
+
+      return { isAtTrustedLocation: false };
+    } catch (error: any) {
+      logger.error('Check trusted location error:', error);
+      return { isAtTrustedLocation: false };
     }
   }
 }

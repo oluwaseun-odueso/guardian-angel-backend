@@ -5,6 +5,8 @@ import User from '../models/user.model';
 import LocationHistory from '../models/locationHistory.model';
 import GeocodingServiceInstance from '../services/geocoding.service';
 import { GeocodingService } from '../services/geocoding.service'
+import HospitalRegistrationService from './hospital.service';
+import Hospital from '../models/hospital.model';
 import logger from '../utils/logger';
 
 export class AlertService {
@@ -367,7 +369,6 @@ export class AlertService {
     }
   }
 
-  // Add this helper method to create fallback route info
   private static createFallbackRouteInfo(distance: number, vehicleType?: string): {
     distance: { text: string; value: number };
     duration: { text: string; value: number };
@@ -556,372 +557,479 @@ export class AlertService {
     }
   }
 
-  // static async getAvailableResponders(
-  //   latitude?: number, 
-  //   longitude?: number,
+  // static async getNearbyMedicalFacilities(
+  //   latitude: number,
+  //   longitude: number,
   //   options: {
   //     maxDistance?: number;
   //     limit?: number;
   //     page?: number;
-  //     vehicleType?: string;
+  //     onlyRegistered?: boolean;
+  //     autoRegister?: boolean;
+  //     country?: string;
   //   } = {}
   // ) {
-  //   // All fields are optional
   //   try {
   //     const {
-  //       maxDistance = 10,
+  //       maxDistance = 10, // km
   //       limit = 20,
   //       page = 1,
-  //       vehicleType
+  //       // onlyRegistered = true,
+  //       autoRegister = true,
+  //       country = 'UK'
   //     } = options;
       
   //     const skip = (page - 1) * limit;
+  //     const maxDistanceMeters = maxDistance * 1000;
       
-  //     let query: any = {
-  //       status: 'available',
+  //     // Step 1: Auto-register nearby hospitals if enabled
+  //     if (autoRegister) {
+  //       await HospitalRegistrationService.findAndRegisterNearbyHospitals(
+  //         { latitude, longitude },
+  //         maxDistanceMeters,
+  //         country
+  //       );
+  //     }
+      
+  //     // Step 2: Build query using $geoWithin
+  //     // $geoWithin doesn't sort by distance, so we'll calculate and sort manually
+  //     const query: any = {
+  //       registrationStatus: 'verified',
   //       isActive: true,
-  //       isVerified: true,
+  //       coordinates: {
+  //         $geoWithin: {
+  //           $centerSphere: [
+  //             [longitude, latitude],
+  //             maxDistance / 6378.1 // Convert km to radians (Earth's radius in km = 6378.1)
+  //           ]
+  //         }
+  //       }
   //     };
       
-  //     // Add vehicle type filter if provided
-  //     if (vehicleType) {
-  //       query.vehicleType = vehicleType;
-  //     }
-
-  //     console.log('📡 getAvailableResponders called with:', {
-  //       latitude,
-  //       longitude,
-  //       maxDistance,
-  //       vehicleType,
-  //       page,
-  //       limit
-  //     });
-      
-  //     // If location provided, calculate distances and filter
-  //     if (latitude !== undefined && longitude !== undefined) {
-  //       console.log('📍 Location provided, fetching responders...');
-
-  //       const allResponders = await Responder.find(query)
-  //         .populate('userId', 'fullName profileImage rating')
-  //         .lean();
-
-  //       console.log(`📊 Total responders found: ${allResponders.length}`);
-  //       console.log('📋 Responders list:', allResponders.map(r => ({
-  //         id: r._id,
-  //         fullName: r.fullName,
-  //         hasLocation: !!r.currentLocation?.coordinates,
-  //         coordinates: r.currentLocation?.coordinates || 'none',
-  //         maxDistance: r.maxDistance,
-  //         status: r.status,
-  //         isVerified: r.isVerified
-  //       })));
-
-  //       if (allResponders.length === 0) {
-  //         console.log('⚠️ No responders found with query:', query);
-  //         return {
-  //           responders: [],
-  //           pagination: {
-  //             total: 0,
-  //             page,
-  //             limit,
-  //             totalPages: 0,
-  //             hasNextPage: false,
-  //             hasPrevPage: false,
-  //           },
-  //         };
-  //       }
-      
-        
-  //       // Calculate distances and filter
-  //       const respondersWithDistance = allResponders
-  //         .map((responder) => {
-  //           if (!responder.currentLocation?.coordinates) return null;
-            
-  //           const [respLng, respLat] = responder.currentLocation.coordinates;
-  //           const distance = GeocodingService.calculateDistance(
-  //             latitude,
-  //             longitude,
-  //             respLat,
-  //             respLng
-  //           );
-            
-  //           const roundedDistance = Math.round(distance * 100) / 100;
-  //           const isWithinGlobalRange = roundedDistance <= maxDistance;
-  //           const isWithinPersonalRange = roundedDistance <= (responder.maxDistance || 10);
-  //           const isWithinRange = isWithinGlobalRange && isWithinPersonalRange;
-            
-  //           if (!isWithinRange) return null;
-            
-  //           return {
-  //             ...responder,
-  //             distance: roundedDistance,
-  //             isWithinRange,
-  //             formattedDistance: `${roundedDistance.toFixed(1)} km`,
-  //             estimatedArrival: this.estimateArrivalTime(roundedDistance, responder.vehicleType),
-  //           };
-  //         })
-  //         .filter(responder => responder !== null)
-  //         .sort((a, b) => a!.distance - b!.distance);
-        
-  //       // Apply pagination
-  //       const total = respondersWithDistance.length;
-  //       const paginatedResults = respondersWithDistance.slice(skip, skip + limit);
-        
-  //       return {
-  //         responders: paginatedResults,
-  //         pagination: {
-  //           total,
-  //           page,
-  //           limit,
-  //           totalPages: Math.ceil(total / limit),
-  //           hasNextPage: skip + limit < total,
-  //           hasPrevPage: page > 1,
-  //         },
-  //       };
+  //     // Optional: Filter by country if needed
+  //     if (country) {
+  //       query.country = country;
   //     }
       
-  //     // No location provided - return all with pagination
-  //     const total = await Responder.countDocuments(query);
-  //     const responders = await Responder.find(query)
-  //       .populate('userId', 'fullName profileImage rating')
+  //     // Step 3: Get total count
+  //     const total = await Hospital.countDocuments(query);
+      
+  //     // Step 4: Get hospitals (without sorting by distance initially)
+  //     const hospitals = await Hospital.find(query)
+  //       .select('name address coordinates phone type services emergencyServices totalBeds emergencyBeds country city googlePlaceId registrationStatus')
   //       .skip(skip)
-  //       .limit(limit)
-  //       .sort({ rating: -1, createdAt: -1 })
+  //       .limit(limit * 2) // Get extra to account for distance sorting
   //       .lean();
       
+  //     // Step 5: Calculate distance for each hospital and filter/sort
+  //     const hospitalsWithDistance = hospitals
+  //       .map((hospital: any) => {
+  //         const [hospitalLng, hospitalLat] = hospital.coordinates.coordinates;
+          
+  //         // Calculate haversine distance
+  //         const distance = this.calculateHaversineDistance(
+  //           latitude,
+  //           longitude,
+  //           hospitalLat,
+  //           hospitalLng
+  //         );
+          
+  //         return {
+  //           ...hospital,
+  //           distance: Math.round(distance * 100) / 100, // Round to 2 decimals
+  //           formattedDistance: `${(Math.round(distance * 100) / 100).toFixed(1)} km`,
+  //         };
+  //       })
+  //       .sort((a: any, b: any) => a.distance - b.distance) // Sort by distance
+  //       .slice(0, limit); // Take only the requested limit after sorting
+      
+  //     // Step 6: Enrich with additional data (responders count, statistics)
+  //     const enrichedHospitals = await Promise.all(
+  //       hospitalsWithDistance.map(async (hospital: any) => {
+  //         try {
+  //           // Get available responders count
+  //           const availableResponders = await Responder.countDocuments({
+  //             hospital: hospital._id,
+  //             status: 'available',
+  //             isActive: true,
+  //             isVerified: true,
+  //           });
+            
+  //           // Get hospital assignment statistics
+  //           const hospitalStats = await Alert.aggregate([
+  //             {
+  //               $match: {
+  //                 assignedHospital: hospital._id,
+  //                 status: { $in: ['completed', 'closed'] }
+  //               }
+  //             },
+  //             {
+  //               $group: {
+  //                 _id: null,
+  //                 totalAssignments: { $sum: 1 },
+  //                 successfulAssignments: {
+  //                   $sum: {
+  //                     $cond: [{ $eq: ['$status', 'completed'] }, 1, 0]
+  //                   }
+  //                 },
+  //                 avgResponseTime: { $avg: '$responseTime' }
+  //               }
+  //             }
+  //           ]);
+            
+  //           // Get hospital rating from responder feedback
+  //           const ratingStats = await Alert.aggregate([
+  //             {
+  //               $match: {
+  //                 assignedHospital: hospital._id,
+  //                 rating: { $exists: true, $gte: 1 }
+  //               }
+  //             },
+  //             {
+  //               $group: {
+  //                 _id: null,
+  //                 averageRating: { $avg: '$rating' },
+  //                 totalRatings: { $sum: 1 }
+  //               }
+  //             }
+  //           ]);
+            
+  //           // Calculate estimated arrival time
+  //           const estimatedArrival = this.estimateArrivalTime(hospital.distance);
+            
+  //           return {
+  //             ...hospital,
+  //             id: hospital._id,
+  //             availableResponders,
+  //             totalAssignments: hospitalStats[0]?.totalAssignments || 0,
+  //             successfulAssignments: hospitalStats[0]?.successfulAssignments || 0,
+  //             successRate: hospitalStats[0]?.totalAssignments 
+  //               ? Math.round((hospitalStats[0].successfulAssignments / hospitalStats[0].totalAssignments) * 100)
+  //               : 0,
+  //             avgResponseTime: hospitalStats[0]?.avgResponseTime 
+  //               ? Math.round(hospitalStats[0].avgResponseTime / 60) // Convert to minutes
+  //               : 0,
+  //             rating: ratingStats[0]?.averageRating 
+  //               ? Math.round(ratingStats[0].averageRating * 10) / 10
+  //               : 0,
+  //             totalRatings: ratingStats[0]?.totalRatings || 0,
+  //             estimatedArrival,
+  //             coordinates: {
+  //               latitude: hospital.coordinates.coordinates[1],
+  //               longitude: hospital.coordinates.coordinates[0]
+  //             },
+  //             // Remove MongoDB internal fields
+  //             _id: undefined,
+  //             __v: undefined
+  //           };
+  //         } catch (error) {
+  //           logger.error(`Error enriching hospital ${hospital._id}:`, error);
+  //           return {
+  //             ...hospital,
+  //             id: hospital._id,
+  //             availableResponders: 0,
+  //             totalAssignments: 0,
+  //             successfulAssignments: 0,
+  //             successRate: 0,
+  //             avgResponseTime: 0,
+  //             rating: 0,
+  //             totalRatings: 0,
+  //             estimatedArrival: this.estimateArrivalTime(hospital.distance),
+  //             coordinates: {
+  //               latitude: hospital.coordinates.coordinates[1],
+  //               longitude: hospital.coordinates.coordinates[0]
+  //             },
+  //             _id: undefined,
+  //             __v: undefined
+  //           };
+  //         }
+  //       })
+  //     );
+      
   //     return {
-  //       responders,
+  //       facilities: enrichedHospitals,
   //       pagination: {
-  //         total,
+  //         total: enrichedHospitals.length,
   //         page,
   //         limit,
   //         totalPages: Math.ceil(total / limit),
   //         hasNextPage: skip + limit < total,
   //         hasPrevPage: page > 1,
   //       },
+  //       metadata: {
+  //         location: { latitude, longitude },
+  //         searchRadius: maxDistance,
+  //         totalFound: hospitals.length,
+  //         autoRegistered: autoRegister,
+  //         country,
+  //         timestamp: new Date().toISOString()
+  //       },
   //     };
-  //   } catch (error: any) {
-  //     logger.error('Get available responders error:', error);
+  //   } catch (error) {
+  //     logger.error('Error getting nearby medical facilities:', error);
   //     throw error;
   //   }
   // }
 
-  static async getAvailableResponders(
-    latitude?: number, 
-    longitude?: number,
+  static async getNearbyMedicalFacilities(
+    latitude: number,
+    longitude: number,
     options: {
       maxDistance?: number;
       limit?: number;
       page?: number;
-      vehicleType?: string;
+      onlyRegistered?: boolean;
+      autoRegister?: boolean;
     } = {}
   ) {
     try {
       const {
-        maxDistance = 10,
+        maxDistance = 10, // km
         limit = 20,
         page = 1,
-        vehicleType
+        autoRegister = true,
       } = options;
       
       const skip = (page - 1) * limit;
+      const maxDistanceMeters = maxDistance * 1000;
       
-      let query: any = {
-        status: 'available',
+      // Step 1: Auto-register nearby hospitals if enabled
+      if (autoRegister) {
+        await HospitalRegistrationService.findAndRegisterNearbyHospitals(
+          { latitude, longitude },
+          maxDistanceMeters
+          // No country parameter needed anymore
+        );
+      }
+      
+      // Step 2: Build query using $geoWithin
+      const query: any = {
+        registrationStatus: 'verified',
         isActive: true,
-        isVerified: true,
+        coordinates: {
+          $geoWithin: {
+            $centerSphere: [
+              [longitude, latitude],
+              maxDistance / 6378.1
+            ]
+          }
+        }
       };
       
-      // Add vehicle type filter if provided
-      if (vehicleType) {
-        query.vehicleType = vehicleType;
-      }
+      // REMOVED: Country filter since we don't pass country parameter anymore
       
-      console.log('📡 getAvailableResponders called with:', {
-        latitude,
-        longitude,
-        maxDistance,
-        vehicleType,
-        page,
-        limit
-      });
+      // Step 3: Get total count
+      const total = await Hospital.countDocuments(query);
       
-      // If location provided, calculate distances and filter
-      if (latitude !== undefined && longitude !== undefined) {
-        console.log('📍 Location provided, fetching responders...');
-        
-        const allResponders = await Responder.find(query)
-          .populate('userId', 'fullName profileImage rating')
-          .lean();
-        
-        console.log(`📊 Total responders found: ${allResponders.length}`);
-        console.log('📋 Responders list:', allResponders.map(r => ({
-          id: r._id,
-          fullName: r.fullName,
-          hasLocation: !!r.currentLocation?.coordinates,
-          coordinates: r.currentLocation?.coordinates || 'none',
-          maxDistance: r.maxDistance,
-          status: r.status,
-          isVerified: r.isVerified
-        })));
-        
-        if (allResponders.length === 0) {
-          console.log('⚠️ No responders found with query:', query);
-          return {
-            responders: [],
-            pagination: {
-              total: 0,
-              page,
-              limit,
-              totalPages: 0,
-              hasNextPage: false,
-              hasPrevPage: false,
-            },
-          };
-        }
-        
-        // Calculate distances and filter
-        const respondersWithDistance = allResponders
-          .map((responder) => {
-            if (!responder.currentLocation?.coordinates) {
-              console.log(`🚫 Responder ${responder._id} has no location`);
-              return null;
-            }
-            
-            // IMPORTANT: Check coordinate format
-            const coordinates = responder.currentLocation.coordinates;
-            console.log(`📍 Responder ${responder._id} coordinates:`, coordinates);
-            
-            // Check if coordinates array has exactly 2 elements
-            if (!Array.isArray(coordinates) || coordinates.length !== 2) {
-              console.log(`❌ Invalid coordinates format for responder ${responder._id}:`, coordinates);
-              return null;
-            }
-            
-            const [respLat, respLng] = coordinates;
-            
-            console.log(`📐 Calculating distance for ${responder.fullName}:`);
-            console.log('  User location:', { latitude, longitude });
-            console.log('  Responder location:', { respLat, respLng });
-            
-            // Calculate distance
-            const distance = GeocodingService.calculateDistance(
-              latitude,      // User latitude
-              longitude,     // User longitude
-              respLat,       // Responder latitude
-              respLng        // Responder longitude
-            );
-            
-            console.log(`  Calculated distance: ${distance} km`);
-            
-            const roundedDistance = Math.round(distance * 100) / 100;
-            console.log(`  Rounded distance: ${roundedDistance} km`);
-            
-            const isWithinGlobalRange = roundedDistance <= maxDistance;
-            const isWithinPersonalRange = roundedDistance <= (responder.maxDistance || 10);
-            const isWithinRange = isWithinGlobalRange && isWithinPersonalRange;
-            
-            console.log(`  Range check - Global (${maxDistance}km): ${isWithinGlobalRange}, Personal (${responder.maxDistance || 10}km): ${isWithinPersonalRange}, Within Range: ${isWithinRange}`);
-            
-            if (!isWithinRange) {
-              console.log(`  ❌ Responder ${responder.fullName} is out of range`);
-              return null;
-            }
-            
-            console.log(`  ✅ Responder ${responder.fullName} is within range!`);
-            
-            return {
-              ...responder,
-              distance: roundedDistance,
-              isWithinRange,
-              formattedDistance: roundedDistance === 0 ? 'At location' : `${roundedDistance.toFixed(1)} km`,
-              estimatedArrival: this.estimateArrivalTime(roundedDistance, responder.vehicleType),
-              coordinates: {
-                latitude: respLat,
-                longitude: respLng
-              }
-            };
-          })
-          .filter(responder => responder !== null)
-          .sort((a, b) => a!.distance - b!.distance);
-        
-        console.log(`✅ Filtered responders within ${maxDistance}km: ${respondersWithDistance.length}`);
-        
-        // Apply pagination
-        const total = respondersWithDistance.length;
-        const paginatedResults = respondersWithDistance.slice(skip, skip + limit);
-        
-        return {
-          responders: paginatedResults,
-          pagination: {
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-            hasNextPage: skip + limit < total,
-            hasPrevPage: page > 1,
-          },
-        };
-      }
-      
-      // No location provided - return all with pagination
-      console.log('🌍 No location provided, returning all responders');
-      
-      const total = await Responder.countDocuments(query);
-      console.log(`📊 Total responders in database: ${total}`);
-      
-      const responders = await Responder.find(query)
-        .populate('userId', 'fullName profileImage rating')
+      // Step 4: Get hospitals
+      const hospitals = await Hospital.find(query)
+        .select('name address coordinates phone type services emergencyServices totalBeds emergencyBeds country city googlePlaceId registrationStatus')
         .skip(skip)
-        .limit(limit)
-        .sort({ rating: -1, createdAt: -1 })
+        .limit(limit * 2)
         .lean();
       
-      console.log(`📤 Returning ${responders.length} responders`);
+      // Step 5: Calculate distance for each hospital and filter/sort
+      const hospitalsWithDistance = hospitals
+        .map((hospital: any) => {
+          const [hospitalLng, hospitalLat] = hospital.coordinates.coordinates;
+          
+          const distance = this.calculateHaversineDistance(
+            latitude,
+            longitude,
+            hospitalLat,
+            hospitalLng
+          );
+          
+          return {
+            ...hospital,
+            distance: Math.round(distance * 100) / 100,
+            formattedDistance: `${(Math.round(distance * 100) / 100).toFixed(1)} km`,
+          };
+        })
+        .sort((a: any, b: any) => a.distance - b.distance)
+        .slice(0, limit);
+      
+      // Step 6: Enrich with additional data
+      const enrichedHospitals = await Promise.all(
+        hospitalsWithDistance.map(async (hospital: any) => {
+          try {
+            const availableResponders = await Responder.countDocuments({
+              hospital: hospital._id,
+              status: 'available',
+              isActive: true,
+              isVerified: true,
+            });
+            
+            const hospitalStats = await Alert.aggregate([
+              {
+                $match: {
+                  assignedHospital: hospital._id,
+                  status: { $in: ['completed', 'closed'] }
+                }
+              },
+              {
+                $group: {
+                  _id: null,
+                  totalAssignments: { $sum: 1 },
+                  successfulAssignments: {
+                    $sum: {
+                      $cond: [{ $eq: ['$status', 'completed'] }, 1, 0]
+                    }
+                  },
+                  avgResponseTime: { $avg: '$responseTime' }
+                }
+              }
+            ]);
+            
+            const ratingStats = await Alert.aggregate([
+              {
+                $match: {
+                  assignedHospital: hospital._id,
+                  rating: { $exists: true, $gte: 1 }
+                }
+              },
+              {
+                $group: {
+                  _id: null,
+                  averageRating: { $avg: '$rating' },
+                  totalRatings: { $sum: 1 }
+                }
+              }
+            ]);
+            
+            const estimatedArrival = this.estimateArrivalTime(hospital.distance);
+            
+            return {
+              ...hospital,
+              id: hospital._id,
+              availableResponders,
+              totalAssignments: hospitalStats[0]?.totalAssignments || 0,
+              successfulAssignments: hospitalStats[0]?.successfulAssignments || 0,
+              successRate: hospitalStats[0]?.totalAssignments 
+                ? Math.round((hospitalStats[0].successfulAssignments / hospitalStats[0].totalAssignments) * 100)
+                : 0,
+              avgResponseTime: hospitalStats[0]?.avgResponseTime 
+                ? Math.round(hospitalStats[0].avgResponseTime / 60)
+                : 0,
+              rating: ratingStats[0]?.averageRating 
+                ? Math.round(ratingStats[0].averageRating * 10) / 10
+                : 0,
+              totalRatings: ratingStats[0]?.totalRatings || 0,
+              estimatedArrival,
+              coordinates: {
+                latitude: hospital.coordinates.coordinates[1],
+                longitude: hospital.coordinates.coordinates[0]
+              },
+              _id: undefined,
+              __v: undefined
+            };
+          } catch (error) {
+            logger.error(`Error enriching hospital ${hospital._id}:`, error);
+            return {
+              ...hospital,
+              id: hospital._id,
+              availableResponders: 0,
+              totalAssignments: 0,
+              successfulAssignments: 0,
+              successRate: 0,
+              avgResponseTime: 0,
+              rating: 0,
+              totalRatings: 0,
+              estimatedArrival: this.estimateArrivalTime(hospital.distance),
+              coordinates: {
+                latitude: hospital.coordinates.coordinates[1],
+                longitude: hospital.coordinates.coordinates[0]
+              },
+              _id: undefined,
+              __v: undefined
+            };
+          }
+        })
+      );
       
       return {
-        responders,
+        facilities: enrichedHospitals,
         pagination: {
-          total,
+          total: enrichedHospitals.length,
           page,
           limit,
           totalPages: Math.ceil(total / limit),
           hasNextPage: skip + limit < total,
           hasPrevPage: page > 1,
         },
+        metadata: {
+          location: { latitude, longitude },
+          searchRadius: maxDistance,
+          totalFound: hospitals.length,
+          autoRegistered: autoRegister,
+          timestamp: new Date().toISOString()
+        },
       };
-    } catch (error: any) {
-      console.error('❌ Get available responders error:', error);
-      logger.error('Get available responders error:', error);
+    } catch (error) {
+      logger.error('Error getting nearby medical facilities:', error);
       throw error;
     }
   }
 
-  // Helper method to estimate arrival time
-  private static estimateArrivalTime(distance: number, vehicleType?: string): string {
-    const speeds: Record<string, number> = {
-      'car': 40,
-      'motorcycle': 50,
-      'bicycle': 15,
-      'foot': 5,
-      'ambulance': 60,
-      'default': 30
-    };
+  private static calculateHaversineDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = this.toRad(lat2 - lat1);
+    const dLon = this.toRad(lon2 - lon1);
     
-    const speed = speeds[vehicleType || 'default'] || speeds.default;
-    const hours = distance / speed;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.toRad(lat1)) * Math.cos(this.toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
     
-    if (hours < 0.0167) { // Less than 1 minute
-      return 'Immediate';
-    } else if (hours < 1) {
-      const minutes = Math.ceil(hours * 60);
-      return `${minutes} min`;
-    } else {
-      return `${hours.toFixed(1)} hours`;
-    }
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   }
 
-  // Add this test method temporarily
+  private static toRad(degrees: number): number {
+    return degrees * (Math.PI / 180);
+  }
+
+  private static estimateArrivalTime(distanceKm: number): string {
+    const averageSpeedKmph = 40; // Average urban driving speed
+    const timeHours = distanceKm / averageSpeedKmph;
+    const timeMinutes = Math.round(timeHours * 60);
+    
+    if (timeMinutes < 1) return '< 1 min';
+    if (timeMinutes < 60) return `${timeMinutes} min`;
+    
+    const hours = Math.floor(timeMinutes / 60);
+    const minutes = timeMinutes % 60;
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+
+  // private static estimateArrivalTime(distance: number, vehicleType?: string): string {
+  //   const speeds: Record<string, number> = {
+  //     'car': 40,
+  //     'motorcycle': 50,
+  //     'bicycle': 15,
+  //     'foot': 5,
+  //     'ambulance': 60,
+  //     'default': 30
+  //   };
+    
+  //   const speed = speeds[vehicleType || 'default'] || speeds.default;
+  //   const hours = distance / speed;
+    
+  //   if (hours < 0.0167) { // Less than 1 minute
+  //     return 'Immediate';
+  //   } else if (hours < 1) {
+  //     const minutes = Math.ceil(hours * 60);
+  //     return `${minutes} min`;
+  //   } else {
+  //     return `${hours.toFixed(1)} hours`;
+  //   }
+  // }
+
   static testDistanceCalculation() {
     // Test with same coordinates (should return 0)
     const sameLocationDistance = GeocodingService.calculateDistance(

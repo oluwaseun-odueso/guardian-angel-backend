@@ -17,13 +17,6 @@ router.get('/history', LocationController.getLocationHistory);
 // Get current location
 router.get('/current', LocationController.getCurrentLocation);
 
-// Add trusted location
-router.post('/trusted-locations', LocationController.addTrustedLocation);
-
-// Remove trusted location
-router.delete('/trusted-locations/:locationId', LocationController.removeTrustedLocation);
-
-
 
 // Location update endpoints
 router.post('/user', LocationUpdateController.updateUserLocation);

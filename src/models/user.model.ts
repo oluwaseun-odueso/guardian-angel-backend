@@ -26,6 +26,12 @@ export interface IUser extends Document {
       email: boolean;
     };
     trustedLocations: Array<{
+      address: { formatted: string; street?: string | undefined; city?: string | undefined; state?: string | undefined; country?: string | undefined; postalCode?: string | undefined; neighborhood?: string | undefined; placeId?: string | undefined; };
+      isHome: boolean;
+      isWork: boolean;
+      notes: string | undefined;
+      createdAt: Date;
+      _id: any;
       name: string;
       coordinates: {
         type: 'Point';

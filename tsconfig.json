@@ -24,7 +24,8 @@
     "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@models/*": ["src/models/*"]
     },
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
