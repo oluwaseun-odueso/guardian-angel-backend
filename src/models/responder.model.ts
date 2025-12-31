@@ -5,7 +5,7 @@ export interface IResponder extends Document {
   fullName: string;
   email: string;
   phone: string;
-  hospital: string;
+  hospital: mongoose.Types.ObjectId;
   certifications: string[];
   experienceYears: number;
   vehicleType?: 'car' | 'motorcycle' | 'bicycle' | 'foot' | 'ambulance';
@@ -42,6 +42,8 @@ export interface IResponder extends Document {
   updatedAt: Date;
 }
 
+
+
 const ResponderSchema: Schema = new Schema({
   userId: {
     type: Schema.Types.ObjectId,
@@ -62,8 +64,9 @@ const ResponderSchema: Schema = new Schema({
     required: true,
   },
   hospital: {
-    type: String,
-    required: true
+    type: Schema.Types.ObjectId,
+    ref: 'Hospital',
+    required: true,
   },
   certifications: {
     type: [String],
