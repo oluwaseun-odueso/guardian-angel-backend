@@ -2,6 +2,7 @@
 import Hospital, { IHospital } from '../models/hospital.model';
 import GeocodingService from './geocoding.service';
 import logger from '../utils/logger';
+import mongoose from 'mongoose';
 
 class HospitalRegistrationService {
   static async findAndRegisterNearbyHospitals(
@@ -71,6 +72,144 @@ class HospitalRegistrationService {
     } catch (error) {
       logger.error('Error finding and registering hospitals:', error);
       return [];
+    }
+  }
+
+  static async findOrCreateHospital(
+    hospitalName: string,
+    coordinates?: { latitude: number; longitude: number }
+  ): Promise<IHospital> {
+    try {
+      // First, try to find by name (case-insensitive)
+      const existingHospital = await Hospital.findOne({
+        name: { $regex: new RegExp(`^${hospitalName}$`, 'i') }
+      });
+
+      if (existingHospital) {
+        return existingHospital;
+      }
+
+      // If coordinates provided, try to find nearby hospitals with similar names
+      if (coordinates) {
+        const nearbyHospitals = await Hospital.find({
+          coordinates: {
+            $near: {
+              $geometry: {
+                type: 'Point',
+                coordinates: [coordinates.longitude, coordinates.latitude]
+              },
+              $maxDistance: 5000 // 5km
+            }
+          },
+          name: { $regex: hospitalName, $options: 'i' }
+        }).limit(1);
+
+        if (nearbyHospitals.length > 0) {
+          return nearbyHospitals[0];
+        }
+      }
+
+      // Create a new hospital
+      const newHospitalData: any = {
+        name: hospitalName,
+        address: coordinates 
+          ? await this.generateAddressFromCoordinates(coordinates)
+          : `${hospitalName}, Unknown Location`,
+        coordinates: coordinates 
+          ? {
+              type: 'Point' as const,
+              coordinates: [coordinates.longitude, coordinates.latitude]
+            }
+          : undefined,
+        type: 'hospital' as const,
+        emergencyServices: true,
+        registrationStatus: 'pending',
+        isActive: true,
+        city: 'Unknown',
+        country: 'Unknown'
+      };
+
+      // Try to get location details from coordinates
+      if (coordinates) {
+        try {
+          const reverseGeocode = await GeocodingService.reverseGeocode(coordinates);
+          if (reverseGeocode) {
+            newHospitalData.city = reverseGeocode.city || 'Unknown';
+            newHospitalData.country = reverseGeocode.country || 'Unknown';
+            newHospitalData.address = reverseGeocode.formattedAddress || newHospitalData.address;
+          }
+        } catch (error) {
+          logger.warn('Could not reverse geocode hospital location:', error);
+        }
+      }
+
+      const newHospital = await Hospital.create(newHospitalData);
+      logger.info(`Created new hospital: ${hospitalName} (${newHospital._id})`);
+
+      return newHospital;
+    } catch (error) {
+      logger.error('Error in findOrCreateHospital:', error);
+      throw new Error(`Could not find or create hospital: ${hospitalName}`);
+    }
+  }
+
+  static async getHospitalByIdOrName(
+    hospitalIdentifier: string
+  ): Promise<IHospital | null> {
+    try {
+      // Check if it's a valid ObjectId
+      if (mongoose.Types.ObjectId.isValid(hospitalIdentifier)) {
+        const hospital = await Hospital.findById(hospitalIdentifier);
+        if (hospital) return hospital;
+      }
+
+      // If not an ObjectId, search by name
+      const hospital = await Hospital.findOne({
+        name: { $regex: new RegExp(`^${hospitalIdentifier}$`, 'i') }
+      });
+
+      return hospital;
+    } catch (error) {
+      logger.error('Error getting hospital:', error);
+      return null;
+    }
+  }
+
+  static async getHospitalsForSelection(
+    search?: string,
+    limit: number = 20
+  ): Promise<Array<{ _id: string; name: string; city: string; country: string }>> {
+    const query: any = { registrationStatus: 'verified', isActive: true };
+    
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { city: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const hospitals = await Hospital.find(query)
+      .select('name city country')
+      .limit(limit)
+      .sort({ name: 1 })
+      .lean();
+
+    return hospitals.map(h => ({
+      _id: h._id.toString(),
+      name: h.name,
+      city: h.city,
+      country: h.country
+    }));
+  }
+
+  private static async generateAddressFromCoordinates(
+    coordinates: { latitude: number; longitude: number }
+  ): Promise<string> {
+    try {
+      const reverseGeocode = await GeocodingService.reverseGeocode(coordinates);
+      return reverseGeocode?.formattedAddress || `${coordinates.latitude}, ${coordinates.longitude}`;
+    } catch (error) {
+      return `${coordinates.latitude}, ${coordinates.longitude}`;
     }
   }
 

@@ -24,7 +24,7 @@ export class AlertController {
         { coordinates, accuracy }
       );
       
-      return ResponseHandler.success(res, result, 'Manual alert created successfully');
+      return ResponseHandler.success(res, result, 'Alert created successfully');
     } catch (error: any) {
       logger.error('Create manual alert error:', error);
       return ResponseHandler.error(res, error.message, 400);

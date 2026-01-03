@@ -348,7 +348,7 @@ export class AlertService {
       
       await session.commitTransaction();
       
-      logger.info(`Manual alert created: ${alert[0]._id} for user ${userId}, assigned to responder ${responderId}, distance: ${distance}km, sameLocation: ${isSameLocation}`);
+      logger.info(`Alert created: ${alert[0]._id} for user ${userId}, assigned to responder ${responderId}, distance: ${distance}km, sameLocation: ${isSameLocation}`);
       
       return {
         alert: alert[0],
@@ -362,7 +362,7 @@ export class AlertService {
       };
     } catch (error) {
       await session.abortTransaction();
-      logger.error('Manual alert creation error:', error);
+      logger.error('Alert creation error:', error);
       throw error;
     } finally {
       session.endSession();
@@ -418,7 +418,10 @@ export class AlertService {
         throw new Error('User not found');
       }
 
+      console.log("A")
       console.log('User:', user)
+      console.log("Latitude:", latitude)
+      console.log("longitude: ", longitude)
       
       // 2. Find nearest available responders
       const nearestResponders = await GeocodingServiceInstance.findNearestResponders(
@@ -427,6 +430,7 @@ export class AlertService {
         5   // Get top 5
       );
       
+      console.log("AB")
       if (nearestResponders.length === 0) {
         throw new Error('No responders available in your area');
       }
@@ -441,6 +445,7 @@ export class AlertService {
           return a.distance - b.distance;
         })[0];
       
+        console.log("ABC")
       // 4. Get responder details
       const responder = await Responder.findOne({
         userId: bestResponder.responderId,
@@ -450,6 +455,7 @@ export class AlertService {
         throw new Error('Selected responder not found');
       }
       
+      console.log("ABCD")
       // 5. Get route information
       let routeInfo: any;
       if (bestResponder.coordinates) {
@@ -461,6 +467,7 @@ export class AlertService {
         );
       }
       
+      console.log("ABCDE")
       // 6. Geocode the location
       const geocodedAddress = await GeocodingServiceInstance.reverseGeocode({
         latitude,
@@ -469,6 +476,7 @@ export class AlertService {
 
       console.log("Geocoded Address:", geocodedAddress)
       
+      console.log("ABCDEF")
       const zoom = 14
       // 7. Generate static map
       const staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
@@ -483,6 +491,8 @@ export class AlertService {
         parseInt(zoom as unknown as string),
         '600x400',
       );
+
+      console.log("ABCDEFG")
       
       // 8. Create the alert
       const alert = await Alert.create([{
@@ -513,6 +523,9 @@ export class AlertService {
           lastUpdated: new Date(),
         },
       }], { session });
+
+      console.log("ABCDEFGH")
+      console.log("Alert: ", alert)
       
       // 9. Update responder status
       responder.status = 'busy';

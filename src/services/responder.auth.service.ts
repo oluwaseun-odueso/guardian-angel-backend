@@ -2,12 +2,15 @@ import mongoose from 'mongoose';
 import Responder from '../models/responder.model';
 import User from '../models/user.model';
 import logger from '../utils/logger';
+import HospitalService from './hospital.service';
+import { IHospital } from '@/models/hospital.model';
+
 
 export class ResponderAuthService {
   static async registerAsResponder(
     userId: string,
     data: {
-      hospital: string;
+      hospital: string; // Can be hospital name or hospital ID
       certifications?: string[];
       experienceYears?: number;
       vehicleType?: 'car' | 'motorcycle' | 'bicycle' | 'foot' | 'ambulance';
@@ -15,7 +18,7 @@ export class ResponderAuthService {
       availability?: any;
       maxDistance?: number;
       bio?: string;
-      currentLocation: object
+      currentLocation: { coordinates: [number, number] }
     }
   ) {
     const session = await mongoose.startSession();
@@ -33,16 +36,31 @@ export class ResponderAuthService {
         throw new Error('Already registered as a responder');
       }
 
-      const validatedAvailability = data.availability 
-      ? this.validateAvailability(data.availability)
-      : this.getDefaultAvailability();
+      // Extract coordinates from currentLocation
+      const [longitude, latitude] = data.currentLocation.coordinates;
       
+      // Step 1: Find or create hospital
+      let hospital: IHospital;
+      try {
+        hospital = await HospitalService.findOrCreateHospital(
+          data.hospital,
+          { latitude, longitude }
+        );
+      } catch (hospitalError: any) {
+        throw new Error(`Hospital error: ${hospitalError.message}`);
+      }
+
+      const validatedAvailability = data.availability 
+        ? this.validateAvailability(data.availability)
+        : this.getDefaultAvailability();
+      
+      // Step 2: Create responder with hospital ObjectId
       const responder = await Responder.create([{
         userId: user._id,
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
-        hospital: data.hospital,
+        hospital: hospital._id, // Use the hospital ObjectId
         certifications: data.certifications || [],
         experienceYears: data.experienceYears || 0,
         vehicleType: data.vehicleType,
@@ -54,8 +72,12 @@ export class ResponderAuthService {
         rating: 5,
         isActive: true,
         isVerified: true, // Needs admin verification
-        currentLocation: data.currentLocation,
-        totalAssignments: 0, // Add missing required fields
+        currentLocation: {
+          type: 'Point',
+          coordinates: data.currentLocation.coordinates,
+          updatedAt: new Date()
+        },
+        totalAssignments: 0,
         successfulAssignments: 0,
         responseTimeAvg: 0,
         lastPing: new Date(),
@@ -66,9 +88,19 @@ export class ResponderAuthService {
       
       await session.commitTransaction();
       
-      logger.info(`Responder registered: ${userId} - ${user.fullName}`);
+      logger.info(`Responder registered: ${userId} - ${user.fullName} at hospital: ${hospital.name}`);
       
-      return responder[0];
+      // Return enriched data
+      const responderData = responder[0].toObject();
+      return {
+        ...responderData,
+        hospitalDetails: {
+          id: hospital._id,
+          name: hospital.name,
+          city: hospital.city,
+          country: hospital.country
+        }
+      };
     } catch (error) {
       await session.abortTransaction();
       logger.error('Responder registration error:', error);
@@ -77,6 +109,80 @@ export class ResponderAuthService {
       session.endSession();
     }
   }
+
+  // static async registerAsResponder(
+  //   userId: string,
+  //   data: {
+  //     hospital: string;
+  //     certifications?: string[];
+  //     experienceYears?: number;
+  //     vehicleType?: 'car' | 'motorcycle' | 'bicycle' | 'foot' | 'ambulance';
+  //     licenseNumber?: string;
+  //     availability?: any;
+  //     maxDistance?: number;
+  //     bio?: string;
+  //     currentLocation: object
+  //   }
+  // ) {
+  //   const session = await mongoose.startSession();
+    
+  //   try {
+  //     session.startTransaction();
+      
+  //     const user = await User.findById(userId).session(session);
+  //     if (!user) {
+  //       throw new Error('User not found');
+  //     }
+      
+  //     const existingResponder = await Responder.findOne({ userId }).session(session);
+  //     if (existingResponder) {
+  //       throw new Error('Already registered as a responder');
+  //     }
+
+  //     const validatedAvailability = data.availability 
+  //     ? this.validateAvailability(data.availability)
+  //     : this.getDefaultAvailability();
+      
+  //     const responder = await Responder.create([{
+  //       userId: user._id,
+  //       fullName: user.fullName,
+  //       email: user.email,
+  //       phone: user.phone,
+  //       hospital: data.hospital,
+  //       certifications: data.certifications || [],
+  //       experienceYears: data.experienceYears || 0,
+  //       vehicleType: data.vehicleType,
+  //       licenseNumber: data.licenseNumber,
+  //       availability: validatedAvailability,
+  //       maxDistance: data.maxDistance || 10,
+  //       bio: data.bio,
+  //       status: 'available',
+  //       rating: 5,
+  //       isActive: true,
+  //       isVerified: true, // Needs admin verification
+  //       currentLocation: data.currentLocation,
+  //       totalAssignments: 0, // Add missing required fields
+  //       successfulAssignments: 0,
+  //       responseTimeAvg: 0,
+  //       lastPing: new Date(),
+  //     }], { session });
+      
+  //     user.role = 'responder';
+  //     await user.save({ session });
+      
+  //     await session.commitTransaction();
+      
+  //     logger.info(`Responder registered: ${userId} - ${user.fullName}`);
+      
+  //     return responder[0];
+  //   } catch (error) {
+  //     await session.abortTransaction();
+  //     logger.error('Responder registration error:', error);
+  //     throw error;
+  //   } finally {
+  //     session.endSession();
+  //   }
+  // }
   
   static async updateProfile(
     userId: string,
