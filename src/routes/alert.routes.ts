@@ -15,7 +15,10 @@ router.post('/panic', AlertController.createPanicAlert); //✅
 // router.get('/available-responders', AlertController.getAvailableResponders); //✅
 router.get('/available-responders', AlertController.getNearbyMedicalFacilities); //✅
 
+// Incident Logs
 router.get('/user-alerts', AlertController.getUserAlerts); //✅
+router.delete('/user-alerts/:alertId', AlertController.deleteAlert)
+
 router.get('/tracking/:alertId', AlertController.getLiveTracking);
 
 // Location updates
