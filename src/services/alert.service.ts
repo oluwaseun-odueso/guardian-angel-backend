@@ -1675,6 +1675,43 @@ export class AlertService {
       throw error;
     }
   }
+
+  static async deleteAlert(alertId: string, userId: string) {
+    try {
+      // Verify the alert exists, belongs to user, and has deletable status
+      // const alert = await Alert.findOne({
+      //   _id: alertId,
+      //   userId: new mongoose.Types.ObjectId(userId)
+      // });
+      
+      // if (!alert) {
+      //   throw new Error('Alert not found or does not belong to user');
+      // }
+
+      const alert = await Alert.findById(alertId);
+
+      if (!alert) {
+        throw new Error('Alert not found');
+      }
+      
+      // Verify the alert belongs to the authenticated user
+      if (alert.userId.toString() !== userId) {
+        throw new Error('Unauthorized to delete this alert');
+      }
+      
+      // Check status
+      if (alert.status !== 'resolved' && alert.status !== 'cancelled') {
+        throw new Error(`Cannot delete alert with status: ${alert.status}`);
+      }
+      
+      // Perform deletion
+      const deletedAlert = await Alert.findByIdAndDelete(alertId);
+      return deletedAlert;
+    } catch (error: any) {
+      logger.error('Delete alert service error:', error);
+      throw error;
+    }
+  }
   
   // Get responder's assigned alerts
   static async getResponderAlerts(responderId: string, status?: string) {
