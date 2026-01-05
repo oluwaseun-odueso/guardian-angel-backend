@@ -7,10 +7,11 @@ import GeocodingServiceInstance from '../services/geocoding.service';
 import { GeocodingService } from '../services/geocoding.service'
 import HospitalRegistrationService from './hospital.service';
 import Hospital from '../models/hospital.model';
+import { CoordinateUtils } from '../utils/coordinates';
 import logger from '../utils/logger';
 
 export class AlertService {
-  // static async createManualAlert(
+  // static async createManualAlertt(
   //   userId: string,
   //   responderId: string,
   //   location: { coordinates: [number, number]; accuracy: number }
@@ -20,7 +21,9 @@ export class AlertService {
   //   try {
   //     session.startTransaction();
       
-  //     const [latitude, longitude] = location.coordinates;
+  //     // const [latitude, longitude] = location.coordinates;
+  //     const { latitude, longitude } = CoordinateUtils.extractLatLngFromClient(location.coordinates);
+  //     // const mongoCoordinates = CoordinateUtils.toMongoDBFormat(location.coordinates);
       
   //     // 1. Get user details
   //     const user = await User.findById(userId).session(session);
@@ -164,210 +167,210 @@ export class AlertService {
   //   }
   // }
 
-  static async createManualAlert(
-    userId: string,
-    responderId: string,
-    location: { coordinates: [number, number]; accuracy: number }
-  ) {
-    const session = await mongoose.startSession();
+  // static async createManualAlert(
+  //   userId: string,
+  //   responderId: string,
+  //   location: { coordinates: [number, number]; accuracy: number }
+  // ) {
+  //   const session = await mongoose.startSession();
     
-    try {
-      session.startTransaction();
+  //   try {
+  //     session.startTransaction();
       
-      const [latitude, longitude] = location.coordinates;
+  //     const [latitude, longitude] = location.coordinates;
       
-      // 1. Get user details
-      const user = await User.findById(userId).session(session);
-      if (!user) {
-        throw new Error('User not found');
-      }
+  //     // 1. Get user details
+  //     const user = await User.findById(userId).session(session);
+  //     if (!user) {
+  //       throw new Error('User not found');
+  //     }
       
-      // 2. Check responder availability
-      const responder = await Responder.findOne({
-        userId: responderId,
-        status: 'available',
-        isActive: true,
-        isVerified: true,
-      }).session(session);
+  //     // 2. Check responder availability
+  //     const responder = await Responder.findOne({
+  //       userId: responderId,
+  //       status: 'available',
+  //       isActive: true,
+  //       isVerified: true,
+  //     }).session(session);
       
-      if (!responder) {
-        throw new Error('Selected responder is not available');
-      }
+  //     if (!responder) {
+  //       throw new Error('Selected responder is not available');
+  //     }
       
-      // 3. Calculate distance if responder has location
-      let distance: number | undefined;
-      let routeInfo: any;
-      let isSameLocation = false;
+  //     // 3. Calculate distance if responder has location
+  //     let distance: number | undefined;
+  //     let routeInfo: any;
+  //     let isSameLocation = false;
       
-      if (responder.currentLocation?.coordinates) {
-        const [respLat, respLng] = responder.currentLocation.coordinates;
-        console.log("Responder coordinates:", respLat, respLng);
-        console.log("User coordinates:", latitude, longitude);
+  //     if (responder.currentLocation?.coordinates) {
+  //       const [respLat, respLng] = responder.currentLocation.coordinates;
+  //       console.log("Responder coordinates:", respLat, respLng);
+  //       console.log("User coordinates:", latitude, longitude);
         
-        distance = GeocodingService.calculateDistance(
-          latitude,
-          longitude,
-          respLat,
-          respLng
-        );
+  //       distance = GeocodingService.calculateDistance(
+  //         latitude,
+  //         longitude,
+  //         respLat,
+  //         respLng
+  //       );
 
-        console.log("Calculated distance:", distance);
+  //       console.log("Calculated distance:", distance);
         
-        if (distance === undefined || distance === null) {
-          throw new Error('Distance calculation failed');
-        }
+  //       if (distance === undefined || distance === null) {
+  //         throw new Error('Distance calculation failed');
+  //       }
         
-        // Check if distance is effectively 0 (same location)
-        isSameLocation = distance < 0.001; // Less than 1 meter
+  //       // Check if distance is effectively 0 (same location)
+  //       isSameLocation = distance < 0.001; // Less than 1 meter
         
-        // Check if within responder's max distance
-        if (distance > responder.maxDistance && !isSameLocation) {
-          throw new Error(`Responder is ${distance.toFixed(1)}km away, outside their maximum range of ${responder.maxDistance}km`);
-        }
+  //       // Check if within responder's max distance
+  //       if (distance > responder.maxDistance && !isSameLocation) {
+  //         throw new Error(`Responder is ${distance.toFixed(1)}km away, outside their maximum range of ${responder.maxDistance}km`);
+  //       }
         
-        // Only get route info if locations are different
-        if (!isSameLocation && distance > 0) {
-          try {
-            routeInfo = await GeocodingServiceInstance.getRoute(
-              { latitude: respLat, longitude: respLng },
-              { latitude, longitude },
-              responder.vehicleType === 'car' ? 'driving' : 
-              responder.vehicleType === 'bicycle' ? 'bicycling' : 'walking'
-            );
+  //       // Only get route info if locations are different
+  //       if (!isSameLocation && distance > 0) {
+  //         try {
+  //           routeInfo = await GeocodingServiceInstance.getRoute(
+  //             { latitude: respLat, longitude: respLng },
+  //             { latitude, longitude },
+  //             responder.vehicleType === 'car' ? 'driving' : 
+  //             responder.vehicleType === 'bicycle' ? 'bicycling' : 'walking'
+  //           );
             
-            if (!routeInfo) {
-              console.warn('Route info could not be retrieved, using fallback estimates');
-              // Create fallback route info based on distance
-              routeInfo = this.createFallbackRouteInfo(distance, responder.vehicleType);
-            }
-          } catch (routeError) {
-            console.warn('Failed to get route info:', routeError);
-            // Create fallback route info
-            routeInfo = this.createFallbackRouteInfo(distance, responder.vehicleType);
-          }
-        } else if (isSameLocation) {
-          // Create immediate arrival route info for same location
-          routeInfo = {
-            distance: { text: '0 km', value: 0 },
-            duration: { text: 'Immediate', value: 0 },
-            polyline: undefined
-          };
-        }
-      }
+  //           if (!routeInfo) {
+  //             console.warn('Route info could not be retrieved, using fallback estimates');
+  //             // Create fallback route info based on distance
+  //             routeInfo = this.createFallbackRouteInfo(distance, responder.vehicleType);
+  //           }
+  //         } catch (routeError) {
+  //           console.warn('Failed to get route info:', routeError);
+  //           // Create fallback route info
+  //           routeInfo = this.createFallbackRouteInfo(distance, responder.vehicleType);
+  //         }
+  //       } else if (isSameLocation) {
+  //         // Create immediate arrival route info for same location
+  //         routeInfo = {
+  //           distance: { text: '0 km', value: 0 },
+  //           duration: { text: 'Immediate', value: 0 },
+  //           polyline: undefined
+  //         };
+  //       }
+  //     }
       
-      // 4. Geocode the location
-      const geocodedAddress = await GeocodingServiceInstance.reverseGeocode({
-        latitude,
-        longitude,
-      });
+  //     // 4. Geocode the location
+  //     const geocodedAddress = await GeocodingServiceInstance.reverseGeocode({
+  //       latitude,
+  //       longitude,
+  //     });
       
-      // 5. Generate static map
-      const staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
-        { latitude, longitude },
-        [
-          {
-            coordinates: { latitude, longitude },
-            label: '📍',
-            color: 'blue',
-          },
-        ],
-        14,
-        '600x400'
-      );
+  //     // 5. Generate static map
+  //     const staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
+  //       { latitude, longitude },
+  //       [
+  //         {
+  //           coordinates: { latitude, longitude },
+  //           label: '📍',
+  //           color: 'blue',
+  //         },
+  //       ],
+  //       14,
+  //       '600x400'
+  //     );
       
-      // 6. Create the alert
-      const alert = await Alert.create([{
-        userId,
-        type: 'manual',
-        status: 'active',
-        location: {
-          type: 'Point',
-          coordinates: location.coordinates,
-          accuracy: location.accuracy,
-          address: geocodedAddress?.formattedAddress,
-          geocodedData: geocodedAddress,
-          staticMapUrl,
-        },
-        assignedResponder: {
-          responderId: responder.userId,
-          assignedAt: new Date(),
-          status: isSameLocation ? 'on-scene' : 'assigned', // If same location, responder is already there
-          acknowledgedAt: isSameLocation ? new Date() : undefined, // Auto-acknowledge if same location
-          estimatedDistance: distance,
-          routeInfo: routeInfo ? {
-            distance: routeInfo.distance,
-            duration: routeInfo.duration,
-            estimatedArrival: isSameLocation ? new Date() : new Date(Date.now() + (routeInfo.duration?.value || 0) * 1000),
-          } : undefined,
-        },
-        tracking: {
-          lastUserLocation: location.coordinates,
-          lastUpdated: new Date(),
-        },
-      }], { session });
+  //     // 6. Create the alert
+  //     const alert = await Alert.create([{
+  //       userId,
+  //       type: 'manual',
+  //       status: 'active',
+  //       location: {
+  //         type: 'Point',
+  //         coordinates: location.coordinates,
+  //         accuracy: location.accuracy,
+  //         address: geocodedAddress?.formattedAddress,
+  //         geocodedData: geocodedAddress,
+  //         staticMapUrl,
+  //       },
+  //       assignedResponder: {
+  //         responderId: responder.userId,
+  //         assignedAt: new Date(),
+  //         status: isSameLocation ? 'on-scene' : 'assigned', // If same location, responder is already there
+  //         acknowledgedAt: isSameLocation ? new Date() : undefined, // Auto-acknowledge if same location
+  //         estimatedDistance: distance,
+  //         routeInfo: routeInfo ? {
+  //           distance: routeInfo.distance,
+  //           duration: routeInfo.duration,
+  //           estimatedArrival: isSameLocation ? new Date() : new Date(Date.now() + (routeInfo.duration?.value || 0) * 1000),
+  //         } : undefined,
+  //       },
+  //       tracking: {
+  //         lastUserLocation: location.coordinates,
+  //         lastUpdated: new Date(),
+  //       },
+  //     }], { session });
       
-      // 7. Update responder status
-      responder.status = 'busy';
-      responder.assignedAlertId = alert[0]._id;
+  //     // 7. Update responder status
+  //     responder.status = 'busy';
+  //     responder.assignedAlertId = alert[0]._id;
       
-      // If same location, update responder's location to match alert location
-      if (isSameLocation) {
-        responder.currentLocation = {
-          type: 'Point',
-          coordinates: location.coordinates,
-          updatedAt: new Date(),
-        };
-      }
+  //     // If same location, update responder's location to match alert location
+  //     if (isSameLocation) {
+  //       responder.currentLocation = {
+  //         type: 'Point',
+  //         coordinates: location.coordinates,
+  //         updatedAt: new Date(),
+  //       };
+  //     }
       
-      await responder.save({ session });
+  //     await responder.save({ session });
       
-      // 8. Save initial location to history
-      await LocationHistory.create([{
-        userId,
-        coordinates: location.coordinates,
-        accuracy: location.accuracy,
-        alertId: alert[0]._id,
-        address: geocodedAddress?.formattedAddress,
-        timestamp: new Date(),
-      }], { session });
+  //     // 8. Save initial location to history
+  //     await LocationHistory.create([{
+  //       userId,
+  //       coordinates: location.coordinates,
+  //       accuracy: location.accuracy,
+  //       alertId: alert[0]._id,
+  //       address: geocodedAddress?.formattedAddress,
+  //       timestamp: new Date(),
+  //     }], { session });
       
-      // 9. If same location, auto-acknowledge the alert
-      if (isSameLocation) {
-        await Alert.findByIdAndUpdate(
-          alert[0]._id,
-          {
-            $set: {
-              status: 'acknowledged',
-              'assignedResponder.status': 'on-scene',
-              'assignedResponder.acknowledgedAt': new Date(),
-            },
-          },
-          { session }
-        );
-      }
+  //     // 9. If same location, auto-acknowledge the alert
+  //     if (isSameLocation) {
+  //       await Alert.findByIdAndUpdate(
+  //         alert[0]._id,
+  //         {
+  //           $set: {
+  //             status: 'acknowledged',
+  //             'assignedResponder.status': 'on-scene',
+  //             'assignedResponder.acknowledgedAt': new Date(),
+  //           },
+  //         },
+  //         { session }
+  //       );
+  //     }
       
-      await session.commitTransaction();
+  //     await session.commitTransaction();
       
-      logger.info(`Alert created: ${alert[0]._id} for user ${userId}, assigned to responder ${responderId}, distance: ${distance}km, sameLocation: ${isSameLocation}`);
+  //     logger.info(`Alert created: ${alert[0]._id} for user ${userId}, assigned to responder ${responderId}, distance: ${distance}km, sameLocation: ${isSameLocation}`);
       
-      return {
-        alert: alert[0],
-        distance,
-        isSameLocation,
-        estimatedTime: isSameLocation ? 'Immediate' : routeInfo?.duration?.text,
-        locationDetails: {
-          address: geocodedAddress?.formattedAddress,
-          staticMapUrl,
-        },
-      };
-    } catch (error) {
-      await session.abortTransaction();
-      logger.error('Alert creation error:', error);
-      throw error;
-    } finally {
-      session.endSession();
-    }
-  }
+  //     return {
+  //       alert: alert[0],
+  //       distance,
+  //       isSameLocation,
+  //       estimatedTime: isSameLocation ? 'Immediate' : routeInfo?.duration?.text,
+  //       locationDetails: {
+  //         address: geocodedAddress?.formattedAddress,
+  //         staticMapUrl,
+  //       },
+  //     };
+  //   } catch (error) {
+  //     await session.abortTransaction();
+  //     logger.error('Alert creation error:', error);
+  //     throw error;
+  //   } finally {
+  //     session.endSession();
+  //   }
+  // }
 
   private static createFallbackRouteInfo(distance: number, vehicleType?: string): {
     distance: { text: string; value: number };
@@ -401,174 +404,174 @@ export class AlertService {
     };
   }
     
-  static async createPanicAlert(
-    userId: string,
-    location: { coordinates: [number, number]; accuracy: number }
-  ) {
-    const session = await mongoose.startSession();
+  // static async createPanicAlert(
+  //   userId: string,
+  //   location: { coordinates: [number, number]; accuracy: number }
+  // ) {
+  //   const session = await mongoose.startSession();
     
-    try {
-      session.startTransaction();
+  //   try {
+  //     session.startTransaction();
       
-      const [latitude, longitude] = location.coordinates;
+  //     const [latitude, longitude] = location.coordinates;
       
-      // 1. Get user details
-      const user = await User.findById(userId).session(session);
-      if (!user) {
-        throw new Error('User not found');
-      }
+  //     // 1. Get user details
+  //     const user = await User.findById(userId).session(session);
+  //     if (!user) {
+  //       throw new Error('User not found');
+  //     }
 
-      console.log("A")
-      console.log('User:', user)
-      console.log("Latitude:", latitude)
-      console.log("longitude: ", longitude)
+  //     console.log("A")
+  //     console.log('User:', user)
+  //     console.log("Latitude:", latitude)
+  //     console.log("longitude: ", longitude)
       
-      // 2. Find nearest available responders
-      const nearestResponders = await GeocodingServiceInstance.findNearestResponders(
-        { latitude, longitude },
-        10, // 10km max distance
-        5   // Get top 5
-      );
+  //     // 2. Find nearest available responders
+  //     const nearestResponders = await GeocodingServiceInstance.findNearestResponders(
+  //       { latitude, longitude },
+  //       10, // 10km max distance
+  //       5   // Get top 5
+  //     );
       
-      console.log("AB")
-      if (nearestResponders.length === 0) {
-        throw new Error('No responders available in your area');
-      }
+  //     console.log("AB")
+  //     if (nearestResponders.length === 0) {
+  //       throw new Error('No responders available in your area');
+  //     }
       
-      // 3. Select best responder (closest + highest rating)
-      const bestResponder = nearestResponders
-        .sort((a, b) => {
-          // If within 1km, prioritize rating
-          if (Math.abs(a.distance - b.distance) < 1) {
-            return b.rating - a.rating;
-          }
-          return a.distance - b.distance;
-        })[0];
+  //     // 3. Select best responder (closest + highest rating)
+  //     const bestResponder = nearestResponders
+  //       .sort((a, b) => {
+  //         // If within 1km, prioritize rating
+  //         if (Math.abs(a.distance - b.distance) < 1) {
+  //           return b.rating - a.rating;
+  //         }
+  //         return a.distance - b.distance;
+  //       })[0];
       
-        console.log("ABC")
-      // 4. Get responder details
-      const responder = await Responder.findOne({
-        userId: bestResponder.responderId,
-      }).session(session);
+  //       console.log("ABC")
+  //     // 4. Get responder details
+  //     const responder = await Responder.findOne({
+  //       userId: bestResponder.responderId,
+  //     }).session(session);
       
-      if (!responder) {
-        throw new Error('Selected responder not found');
-      }
+  //     if (!responder) {
+  //       throw new Error('Selected responder not found');
+  //     }
       
-      console.log("ABCD")
-      // 5. Get route information
-      let routeInfo: any;
-      if (bestResponder.coordinates) {
-        routeInfo = await GeocodingServiceInstance.getRoute(
-          bestResponder.coordinates,
-          { latitude, longitude },
-          responder.vehicleType === 'car' ? 'driving' : 
-          responder.vehicleType === 'bicycle' ? 'bicycling' : 'walking'
-        );
-      }
+  //     console.log("ABCD")
+  //     // 5. Get route information
+  //     let routeInfo: any;
+  //     if (bestResponder.coordinates) {
+  //       routeInfo = await GeocodingServiceInstance.getRoute(
+  //         bestResponder.coordinates,
+  //         { latitude, longitude },
+  //         responder.vehicleType === 'car' ? 'driving' : 
+  //         responder.vehicleType === 'bicycle' ? 'bicycling' : 'walking'
+  //       );
+  //     }
       
-      console.log("ABCDE")
-      // 6. Geocode the location
-      const geocodedAddress = await GeocodingServiceInstance.reverseGeocode({
-        latitude,
-        longitude,
-      });
+  //     console.log("ABCDE")
+  //     // 6. Geocode the location
+  //     const geocodedAddress = await GeocodingServiceInstance.reverseGeocode({
+  //       latitude,
+  //       longitude,
+  //     });
 
-      console.log("Geocoded Address:", geocodedAddress)
+  //     console.log("Geocoded Address:", geocodedAddress)
       
-      console.log("ABCDEF")
-      const zoom = 14
-      // 7. Generate static map
-      const staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
-        { latitude: parseFloat(latitude as unknown as string), longitude: parseFloat(longitude as unknown as string) },
-        [
-          {
-            coordinates: { latitude, longitude },
-            label: '📍',
-            color: 'red',
-          },
-        ],
-        parseInt(zoom as unknown as string),
-        '600x400',
-      );
+  //     console.log("ABCDEF")
+  //     const zoom = 14
+  //     // 7. Generate static map
+  //     const staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
+  //       { latitude: parseFloat(latitude as unknown as string), longitude: parseFloat(longitude as unknown as string) },
+  //       [
+  //         {
+  //           coordinates: { latitude, longitude },
+  //           label: '📍',
+  //           color: 'red',
+  //         },
+  //       ],
+  //       parseInt(zoom as unknown as string),
+  //       '600x400',
+  //     );
 
-      console.log("ABCDEFG")
+  //     console.log("ABCDEFG")
       
-      // 8. Create the alert
-      const alert = await Alert.create([{
-        userId,
-        type: 'panic',
-        status: 'active',
-        location: {
-          type: 'Point',
-          coordinates: location.coordinates,
-          accuracy: location.accuracy,
-          address: geocodedAddress?.formattedAddress,
-          geocodedData: geocodedAddress,
-          staticMapUrl,
-        },
-        assignedResponder: {
-          responderId: responder.userId,
-          assignedAt: new Date(),
-          status: 'assigned',
-          estimatedDistance: bestResponder.distance,
-          routeInfo: routeInfo ? {
-            distance: routeInfo.distance,
-            duration: routeInfo.duration,
-            estimatedArrival: new Date(Date.now() + routeInfo.duration.value * 1000),
-          } : undefined,
-        },
-        tracking: {
-          lastUserLocation: location.coordinates,
-          lastUpdated: new Date(),
-        },
-      }], { session });
+  //     // 8. Create the alert
+  //     const alert = await Alert.create([{
+  //       userId,
+  //       type: 'panic',
+  //       status: 'active',
+  //       location: {
+  //         type: 'Point',
+  //         coordinates: location.coordinates,
+  //         accuracy: location.accuracy,
+  //         address: geocodedAddress?.formattedAddress,
+  //         geocodedData: geocodedAddress,
+  //         staticMapUrl,
+  //       },
+  //       assignedResponder: {
+  //         responderId: responder.userId,
+  //         assignedAt: new Date(),
+  //         status: 'assigned',
+  //         estimatedDistance: bestResponder.distance,
+  //         routeInfo: routeInfo ? {
+  //           distance: routeInfo.distance,
+  //           duration: routeInfo.duration,
+  //           estimatedArrival: new Date(Date.now() + routeInfo.duration.value * 1000),
+  //         } : undefined,
+  //       },
+  //       tracking: {
+  //         lastUserLocation: location.coordinates,
+  //         lastUpdated: new Date(),
+  //       },
+  //     }], { session });
 
-      console.log("ABCDEFGH")
-      console.log("Alert: ", alert)
+  //     console.log("ABCDEFGH")
+  //     console.log("Alert: ", alert)
       
-      // 9. Update responder status
-      responder.status = 'busy';
-      responder.totalAssignments += 1
-      responder.assignedAlertId = alert[0]._id;
-      await responder.save({ session });
+  //     // 9. Update responder status
+  //     responder.status = 'busy';
+  //     responder.totalAssignments += 1
+  //     responder.assignedAlertId = alert[0]._id;
+  //     await responder.save({ session });
       
-      // 10. Save to location history
-      await LocationHistory.create([{
-        userId,
-        coordinates: location.coordinates,
-        accuracy: location.accuracy,
-        alertId: alert[0]._id,
-        address: geocodedAddress?.formattedAddress,
-        timestamp: new Date(),
-      }], { session });
+  //     // 10. Save to location history
+  //     await LocationHistory.create([{
+  //       userId,
+  //       coordinates: location.coordinates,
+  //       accuracy: location.accuracy,
+  //       alertId: alert[0]._id,
+  //       address: geocodedAddress?.formattedAddress,
+  //       timestamp: new Date(),
+  //     }], { session });
       
-      await session.commitTransaction();
+  //     await session.commitTransaction();
       
-      logger.info(`Panic alert created: ${alert[0]._id} for user ${userId}, auto-assigned to responder ${responder.userId}, distance: ${bestResponder.distance.toFixed(2)}km`);
+  //     logger.info(`Panic alert created: ${alert[0]._id} for user ${userId}, auto-assigned to responder ${responder.userId}, distance: ${bestResponder.distance.toFixed(2)}km`);
       
-      return {
-        alert: alert[0],
-        assignedResponder: {
-          id: responder.userId,
-          name: `${responder.fullName}`,
-          distance: bestResponder.distance,
-          estimatedTime: routeInfo?.duration.text,
-          vehicleType: responder.vehicleType,
-        },
-        locationDetails: {
-          address: geocodedAddress?.formattedAddress,
-          staticMapUrl,
-        },
-      };
-    } catch (error) {
-      await session.abortTransaction();
-      logger.error('Panic alert creation error:', error);
-      throw error;
-    } finally {
-      session.endSession();
-    }
-  }
+  //     return {
+  //       alert: alert[0],
+  //       assignedResponder: {
+  //         id: responder.userId,
+  //         name: `${responder.fullName}`,
+  //         distance: bestResponder.distance,
+  //         estimatedTime: routeInfo?.duration.text,
+  //         vehicleType: responder.vehicleType,
+  //       },
+  //       locationDetails: {
+  //         address: geocodedAddress?.formattedAddress,
+  //         staticMapUrl,
+  //       },
+  //     };
+  //   } catch (error) {
+  //     await session.abortTransaction();
+  //     logger.error('Panic alert creation error:', error);
+  //     throw error;
+  //   } finally {
+  //     session.endSession();
+  //   }
+  // }
 
   // static async getNearbyMedicalFacilities(
   //   latitude: number,
@@ -783,6 +786,400 @@ export class AlertService {
   //     throw error;
   //   }
   // }
+
+  static async createManualAlert(
+    userId: string,
+    responderId: string,
+    location: { coordinates: [number, number]; accuracy: number }
+  ) {
+    const session = await mongoose.startSession();
+    
+    try {
+      session.startTransaction();
+      
+      // Extract coordinates from client format [lat, lng]
+      // const [clientLat, clientLng] = location.coordinates;
+      const { latitude, longitude } = CoordinateUtils.extractLatLngFromClient(location.coordinates);
+      
+      // Convert to MongoDB format for storage
+      const mongoCoordinates = CoordinateUtils.toMongoDBFormat(location.coordinates);
+      
+      // 1. Get user details
+      const user = await User.findById(userId).session(session);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      // 2. Check responder availability
+      const responder = await Responder.findOne({
+        userId: responderId,
+        status: 'available',
+        isActive: true,
+        isVerified: true,
+      }).session(session);
+      
+      if (!responder) {
+        throw new Error('Selected responder is not available');
+      }
+      
+      // 3. Calculate distance if responder has location
+      let distance: number | undefined;
+      let routeInfo: any;
+      let isSameLocation = false;
+      
+      if (responder.currentLocation?.coordinates) {
+        // Convert responder's MongoDB coordinates to [lat, lng] format for calculation
+        const responderClientCoords = CoordinateUtils.fromMongoDBFormat(
+          responder.currentLocation.coordinates as [number, number]
+        );
+        const [respLat, respLng] = responderClientCoords;
+        
+        console.log("Responder coordinates (client format):", respLat, respLng);
+        console.log("User coordinates (client format):", latitude, longitude);
+        
+        distance = GeocodingService.calculateDistance(
+          latitude,
+          longitude,
+          respLat,
+          respLng
+        );
+
+        console.log("Calculated distance:", distance);
+        
+        if (distance === undefined || distance === null) {
+          throw new Error('Distance calculation failed');
+        }
+        
+        // Check if distance is effectively 0 (same location)
+        isSameLocation = distance < 0.001; // Less than 1 meter
+        
+        // Check if within responder's max distance
+        if (distance > responder.maxDistance && !isSameLocation) {
+          throw new Error(`Responder is ${distance.toFixed(1)}km away, outside their maximum range of ${responder.maxDistance}km`);
+        }
+        
+        // Only get route info if locations are different
+        if (!isSameLocation && distance > 0) {
+          try {
+            routeInfo = await GeocodingServiceInstance.getRoute(
+              { latitude: respLat, longitude: respLng },
+              { latitude, longitude },
+              responder.vehicleType === 'car' ? 'driving' : 
+              responder.vehicleType === 'bicycle' ? 'bicycling' : 'walking'
+            );
+            
+            if (!routeInfo) {
+              console.warn('Route info could not be retrieved, using fallback estimates');
+              // Create fallback route info based on distance
+              routeInfo = this.createFallbackRouteInfo(distance, responder.vehicleType);
+            }
+          } catch (routeError) {
+            console.warn('Failed to get route info:', routeError);
+            // Create fallback route info
+            routeInfo = this.createFallbackRouteInfo(distance, responder.vehicleType);
+          }
+        } else if (isSameLocation) {
+          // Create immediate arrival route info for same location
+          routeInfo = {
+            distance: { text: '0 km', value: 0 },
+            duration: { text: 'Immediate', value: 0 },
+            polyline: undefined
+          };
+        }
+      }
+      
+      // 4. Geocode the location
+      const geocodedAddress = await GeocodingServiceInstance.reverseGeocode({
+        latitude,
+        longitude,
+      });
+      
+      // 5. Generate static map
+      const staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
+        { latitude, longitude },
+        [
+          {
+            coordinates: { latitude, longitude },
+            label: '📍',
+            color: 'blue',
+          },
+        ],
+        14,
+        '600x400'
+      );
+      
+      // 6. Create the alert with MongoDB coordinates
+      const alert = await Alert.create([{
+        userId,
+        type: 'manual',
+        status: 'active',
+        location: {
+          type: 'Point',
+          coordinates: mongoCoordinates, // Store in MongoDB format
+          accuracy: location.accuracy,
+          address: geocodedAddress?.formattedAddress,
+          geocodedData: geocodedAddress,
+          staticMapUrl,
+        },
+        assignedResponder: {
+          responderId: responder.userId,
+          assignedAt: new Date(),
+          status: isSameLocation ? 'on-scene' : 'assigned',
+          acknowledgedAt: isSameLocation ? new Date() : undefined,
+          estimatedDistance: distance,
+          routeInfo: routeInfo ? {
+            distance: routeInfo.distance,
+            duration: routeInfo.duration,
+            estimatedArrival: isSameLocation ? new Date() : new Date(Date.now() + (routeInfo.duration?.value || 0) * 1000),
+          } : undefined,
+        },
+        tracking: {
+          lastUserLocation: mongoCoordinates, // Store in MongoDB format
+          lastUpdated: new Date(),
+        },
+      }], { session });
+      
+      // 7. Update responder status
+      responder.status = 'busy';
+      responder.assignedAlertId = alert[0]._id;
+      
+      // If same location, update responder's location to match alert location
+      if (isSameLocation) {
+        responder.currentLocation = {
+          type: 'Point',
+          coordinates: mongoCoordinates, // Store in MongoDB format
+          updatedAt: new Date(),
+        };
+      }
+      
+      await responder.save({ session });
+      
+      // 8. Save initial location to history with MongoDB coordinates
+      await LocationHistory.create([{
+        userId,
+        coordinates: mongoCoordinates, // Store in MongoDB format
+        accuracy: location.accuracy,
+        alertId: alert[0]._id,
+        address: geocodedAddress?.formattedAddress,
+        timestamp: new Date(),
+      }], { session });
+      
+      // 9. If same location, auto-acknowledge the alert
+      if (isSameLocation) {
+        await Alert.findByIdAndUpdate(
+          alert[0]._id,
+          {
+            $set: {
+              status: 'acknowledged',
+              'assignedResponder.status': 'on-scene',
+              'assignedResponder.acknowledgedAt': new Date(),
+            },
+          },
+          { session }
+        );
+      }
+      
+      await session.commitTransaction();
+      
+      logger.info(`Alert created: ${alert[0]._id} for user ${userId}, assigned to responder ${responderId}, distance: ${distance}km, sameLocation: ${isSameLocation}`);
+      
+      return {
+        alert: alert[0],
+        distance,
+        isSameLocation,
+        estimatedTime: isSameLocation ? 'Immediate' : routeInfo?.duration?.text,
+        locationDetails: {
+          address: geocodedAddress?.formattedAddress,
+          staticMapUrl,
+        },
+      };
+    } catch (error) {
+      await session.abortTransaction();
+      logger.error('Alert creation error:', error);
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  static async createPanicAlert(
+    userId: string,
+    location: { coordinates: [number, number]; accuracy: number }
+  ) {
+    const session = await mongoose.startSession();
+    
+    try {
+      session.startTransaction();
+      
+      // Extract coordinates from client format [lat, lng]
+      // const [clientLat, clientLng] = location.coordinates;
+      const { latitude, longitude } = CoordinateUtils.extractLatLngFromClient(location.coordinates);
+      
+      // Convert to MongoDB format for storage
+      const mongoCoordinates = CoordinateUtils.toMongoDBFormat(location.coordinates);
+      
+      // 1. Get user details
+      const user = await User.findById(userId).session(session);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      console.log("A")
+      console.log('User:', user)
+      console.log("Latitude:", latitude)
+      console.log("Longitude:", longitude)
+      
+      // 2. Find nearest available responders
+      const nearestResponders = await GeocodingServiceInstance.findNearestResponders(
+        { latitude, longitude },
+        10, // 10km max distance
+        5   // Get top 5
+      );
+      
+      console.log("AB")
+      if (nearestResponders.length === 0) {
+        throw new Error('No responders available in your area');
+      }
+      
+      // 3. Select best responder (closest + highest rating)
+      const bestResponder = nearestResponders
+        .sort((a, b) => {
+          // If within 1km, prioritize rating
+          if (Math.abs(a.distance - b.distance) < 1) {
+            return b.rating - a.rating;
+          }
+          return a.distance - b.distance;
+        })[0];
+      
+      console.log("ABC")
+      // 4. Get responder details
+      const responder = await Responder.findOne({
+        userId: bestResponder.responderId,
+      }).session(session);
+      
+      if (!responder) {
+        throw new Error('Selected responder not found');
+      }
+      
+      console.log("ABCD")
+      // 5. Get route information
+      let routeInfo: any;
+      if (bestResponder.coordinates) {
+        // Ensure coordinates are in [lat, lng] format for Google Maps API
+        const responderCoords = CoordinateUtils.extractLatLngFromMongo(
+          responder.currentLocation?.coordinates as [number, number] || [0, 0]
+        );
+        
+        routeInfo = await GeocodingServiceInstance.getRoute(
+          responderCoords,
+          { latitude, longitude },
+          responder.vehicleType === 'car' ? 'driving' : 
+          responder.vehicleType === 'bicycle' ? 'bicycling' : 'walking'
+        );
+      }
+      
+      console.log("ABCDE")
+      // 6. Geocode the location
+      const geocodedAddress = await GeocodingServiceInstance.reverseGeocode({
+        latitude,
+        longitude,
+      });
+
+      console.log("Geocoded Address:", geocodedAddress)
+      
+      console.log("ABCDEF")
+      const zoom = 14
+      // 7. Generate static map
+      const staticMapUrl = GeocodingServiceInstance.getStaticMapUrl(
+        { latitude, longitude },
+        [
+          {
+            coordinates: { latitude, longitude },
+            label: '📍',
+            color: 'red',
+          },
+        ],
+        parseInt(zoom as unknown as string),
+        '600x400',
+      );
+
+      console.log("ABCDEFG")
+      
+      // 8. Create the alert with MongoDB coordinates
+      const alert = await Alert.create([{
+        userId,
+        type: 'panic',
+        status: 'active',
+        location: {
+          type: 'Point',
+          coordinates: mongoCoordinates, // Store in MongoDB format
+          accuracy: location.accuracy,
+          address: geocodedAddress?.formattedAddress,
+          geocodedData: geocodedAddress,
+          staticMapUrl,
+        },
+        assignedResponder: {
+          responderId: responder.userId,
+          assignedAt: new Date(),
+          status: 'assigned',
+          estimatedDistance: bestResponder.distance,
+          routeInfo: routeInfo ? {
+            distance: routeInfo.distance,
+            duration: routeInfo.duration,
+            estimatedArrival: new Date(Date.now() + routeInfo.duration.value * 1000),
+          } : undefined,
+        },
+        tracking: {
+          lastUserLocation: mongoCoordinates, // Store in MongoDB format
+          lastUpdated: new Date(),
+        },
+      }], { session });
+
+      console.log("ABCDEFGH")
+      console.log("Alert: ", alert)
+      
+      // 9. Update responder status
+      responder.status = 'busy';
+      responder.totalAssignments += 1
+      responder.assignedAlertId = alert[0]._id;
+      await responder.save({ session });
+      
+      // 10. Save to location history with MongoDB coordinates
+      await LocationHistory.create([{
+        userId,
+        coordinates: mongoCoordinates, // Store in MongoDB format
+        accuracy: location.accuracy,
+        alertId: alert[0]._id,
+        address: geocodedAddress?.formattedAddress,
+        timestamp: new Date(),
+      }], { session });
+      
+      await session.commitTransaction();
+      
+      logger.info(`Panic alert created: ${alert[0]._id} for user ${userId}, auto-assigned to responder ${responder.userId}, distance: ${bestResponder.distance.toFixed(2)}km`);
+      
+      return {
+        alert: alert[0],
+        assignedResponder: {
+          id: responder.userId,
+          name: `${responder.fullName}`,
+          distance: bestResponder.distance,
+          estimatedTime: routeInfo?.duration.text,
+          vehicleType: responder.vehicleType,
+        },
+        locationDetails: {
+          address: geocodedAddress?.formattedAddress,
+          staticMapUrl,
+        },
+      };
+    } catch (error) {
+      await session.abortTransaction();
+      logger.error('Panic alert creation error:', error);
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
 
   static async getNearbyMedicalFacilities(
     latitude: number,
