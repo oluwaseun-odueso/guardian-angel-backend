@@ -2,6 +2,7 @@ import { Response } from 'express';
 import AlertService from '../services/alert.service';
 import ResponseHandler from '../utils/response';
 import logger from '../utils/logger';
+import Alert from '../models/alert.model'
 import { AuthRequest } from '../middlewares/auth.middleware';
 
 export class AlertController {
@@ -173,6 +174,55 @@ export class AlertController {
     } catch (error: any) {
       logger.error('Get user alerts error:', error);
       return ResponseHandler.error(res, 'Failed to get alerts');
+    }
+  }
+
+  static async deleteAlert(req: AuthRequest, res: Response): Promise<Response> {
+    try {
+      if (!req.user) {
+        return ResponseHandler.error(res, 'User not authenticated', 401);
+      }
+      
+      const { alertId } = req.params;
+      const userId = req.user._id.toString();
+      
+      // Check if the alert exists and belongs to the user
+      const alert = await Alert.findById(alertId);
+      
+      if (!alert) {
+        return ResponseHandler.error(res, 'Alert not found', 404);
+      }
+      
+      // Verify the alert belongs to the authenticated user
+      if (alert.userId.toString() !== userId) {
+        return ResponseHandler.error(res, 'Unauthorized to delete this alert', 403);
+      }
+      
+      // if (alert.status !== 'resolved' && alert.status !== 'cancelled') {
+      //   return ResponseHandler.error(
+      //     res, 
+      //     `Cannot delete alert with status: ${alert.status}. Only resolved or cancelled alerts can be deleted.`, 
+      //     400
+      //   );
+      // }
+      
+      // Delete the alert
+      const deletedAlert = await AlertService.deleteAlert(alertId, userId);
+      
+      if (!deletedAlert) {
+        return ResponseHandler.error(res, 'Failed to delete alert', 400);
+      }
+      
+      return ResponseHandler.success(res, deletedAlert, 'Alert deleted successfully');
+    } catch (error: any) {
+      logger.error('Delete alert error:', error);
+      
+      // Handle specific error cases
+      if (error.name === 'CastError') {
+        return ResponseHandler.error(res, 'Invalid alert ID format', 400);
+      }
+      
+      return ResponseHandler.error(res, error.message, 400);
     }
   }
   
