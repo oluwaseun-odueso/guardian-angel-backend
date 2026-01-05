@@ -9,6 +9,7 @@ export interface IUser extends Document {
   phone: string;
   profileImage?: string;
   emergencyContacts?: Array<{
+    _id: any;
     name: string;
     phone: string;
     relationship: string;

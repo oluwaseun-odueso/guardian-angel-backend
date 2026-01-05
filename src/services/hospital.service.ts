@@ -75,22 +75,122 @@ class HospitalRegistrationService {
     }
   }
 
+  // static async findOrCreateHospital(
+  //   hospitalName: string,
+  //   coordinates?: { latitude: number; longitude: number }
+  // ): Promise<IHospital> {
+  //   try {
+  //     // First, try to find by name (case-insensitive)
+  //     const existingHospital = await Hospital.findOne({
+  //       name: { $regex: new RegExp(`^${hospitalName}$`, 'i') }
+  //     });
+
+  //     if (existingHospital) {
+  //       return existingHospital;
+  //     }
+
+  //     // If coordinates provided, try to find nearby hospitals with similar names
+  //     if (coordinates) {
+  //       const nearbyHospitals = await Hospital.find({
+  //         coordinates: {
+  //           $near: {
+  //             $geometry: {
+  //               type: 'Point',
+  //               coordinates: [coordinates.longitude, coordinates.latitude]
+  //             },
+  //             $maxDistance: 5000 // 5km
+  //           }
+  //         },
+  //         name: { $regex: hospitalName, $options: 'i' }
+  //       }).limit(1);
+
+  //       if (nearbyHospitals.length > 0) {
+  //         return nearbyHospitals[0];
+  //       }
+  //     }
+
+  //     // Create a new hospital
+  //     const newHospitalData: any = {
+  //       name: hospitalName,
+  //       address: coordinates 
+  //         ? await this.generateAddressFromCoordinates(coordinates)
+  //         : `${hospitalName}, Unknown Location`,
+  //       coordinates: coordinates 
+  //         ? {
+  //             type: 'Point' as const,
+  //             coordinates: [coordinates.longitude, coordinates.latitude]
+  //           }
+  //         : undefined,
+  //       type: 'hospital' as const,
+  //       emergencyServices: true,
+  //       registrationStatus: 'pending',
+  //       isActive: true,
+  //       city: 'Unknown',
+  //       country: 'Unknown'
+  //     };
+
+  //     // Try to get location details from coordinates
+  //     if (coordinates) {
+  //       try {
+  //         const reverseGeocode = await GeocodingService.reverseGeocode(coordinates);
+  //         if (reverseGeocode) {
+  //           newHospitalData.city = reverseGeocode.city || 'Unknown';
+  //           newHospitalData.country = reverseGeocode.country || 'Unknown';
+  //           newHospitalData.address = reverseGeocode.formattedAddress || newHospitalData.address;
+  //         }
+  //       } catch (error) {
+  //         logger.warn('Could not reverse geocode hospital location:', error);
+  //       }
+  //     }
+
+  //     const newHospital = await Hospital.create(newHospitalData);
+  //     logger.info(`Created new hospital: ${hospitalName} (${newHospital._id})`);
+
+  //     return newHospital;
+  //   } catch (error) {
+  //     logger.error('Error in findOrCreateHospital:', error);
+  //     throw new Error(`Could not find or create hospital: ${hospitalName}`);
+  //   }
+  // }
+
   static async findOrCreateHospital(
-    hospitalName: string,
+    hospitalIdentifier: string,
     coordinates?: { latitude: number; longitude: number }
   ): Promise<IHospital> {
     try {
-      // First, try to find by name (case-insensitive)
-      const existingHospital = await Hospital.findOne({
-        name: { $regex: new RegExp(`^${hospitalName}$`, 'i') }
+      console.log(`findOrCreateHospital called with identifier: "${hospitalIdentifier}"`);
+      
+      // Step 1: Check if it's a valid MongoDB ObjectId
+      const isObjectId = mongoose.Types.ObjectId.isValid(hospitalIdentifier);
+      console.log(`Is "${hospitalIdentifier}" a valid ObjectId? ${isObjectId}`);
+      
+      if (isObjectId) {
+        console.log(`Looking for hospital by ID: ${hospitalIdentifier}`);
+        const hospitalById = await Hospital.findById(hospitalIdentifier);
+        
+        if (hospitalById) {
+          console.log(`✅ Found hospital by ID: ${hospitalById.name} (_id: ${hospitalById._id})`);
+          return hospitalById;
+        } else {
+          console.log(`❌ No hospital found with ID: ${hospitalIdentifier}`);
+          console.log(`Will now search by name instead...`);
+        }
+      }
+      
+      // Step 2: Search by name (case-insensitive, exact match)
+      console.log(`Searching for hospital by name: "${hospitalIdentifier}"`);
+      const hospitalByName = await Hospital.findOne({
+        name: { $regex: new RegExp(`^${hospitalIdentifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
       });
 
-      if (existingHospital) {
-        return existingHospital;
+      if (hospitalByName) {
+        console.log(`✅ Found hospital by name: ${hospitalByName.name} (_id: ${hospitalByName._id})`);
+        return hospitalByName;
       }
-
-      // If coordinates provided, try to find nearby hospitals with similar names
+      
+      // Step 3: If coordinates provided, search nearby with similar names
       if (coordinates) {
+        console.log(`Searching for nearby hospitals with similar names...`);
         const nearbyHospitals = await Hospital.find({
           coordinates: {
             $near: {
@@ -98,58 +198,63 @@ class HospitalRegistrationService {
                 type: 'Point',
                 coordinates: [coordinates.longitude, coordinates.latitude]
               },
-              $maxDistance: 5000 // 5km
+              $maxDistance: 10000 // 10km
             }
           },
-          name: { $regex: hospitalName, $options: 'i' }
+          name: { $regex: hospitalIdentifier, $options: 'i' }
         }).limit(1);
 
         if (nearbyHospitals.length > 0) {
+          console.log(`✅ Found nearby hospital: ${nearbyHospitals[0].name} (_id: ${nearbyHospitals[0]._id})`);
           return nearbyHospitals[0];
         }
       }
 
-      // Create a new hospital
+      // Step 4: Create new hospital
+      console.log(`🆕 Creating new hospital with name: "${hospitalIdentifier}"`);
+      
       const newHospitalData: any = {
-        name: hospitalName,
+        name: hospitalIdentifier,
         address: coordinates 
           ? await this.generateAddressFromCoordinates(coordinates)
-          : `${hospitalName}, Unknown Location`,
-        coordinates: coordinates 
-          ? {
-              type: 'Point' as const,
-              coordinates: [coordinates.longitude, coordinates.latitude]
-            }
-          : undefined,
-        type: 'hospital' as const,
+          : `${hospitalIdentifier}, Unknown Location`,
+        type: 'hospital',
         emergencyServices: true,
-        registrationStatus: 'pending',
+        registrationStatus: 'verified', // Auto-verify for responder registration
         isActive: true,
         city: 'Unknown',
         country: 'Unknown'
       };
 
-      // Try to get location details from coordinates
+      // Add coordinates if available
       if (coordinates) {
+        newHospitalData.coordinates = {
+          type: 'Point',
+          coordinates: [coordinates.longitude, coordinates.latitude]
+        };
+
+        // Try to get location details
         try {
           const reverseGeocode = await GeocodingService.reverseGeocode(coordinates);
           if (reverseGeocode) {
             newHospitalData.city = reverseGeocode.city || 'Unknown';
             newHospitalData.country = reverseGeocode.country || 'Unknown';
             newHospitalData.address = reverseGeocode.formattedAddress || newHospitalData.address;
+            console.log(`📍 Reverse geocode found: ${reverseGeocode.city}, ${reverseGeocode.country}`);
           }
         } catch (error) {
-          logger.warn('Could not reverse geocode hospital location:', error);
+          console.warn('Could not reverse geocode:', error);
         }
       }
 
       const newHospital = await Hospital.create(newHospitalData);
-      logger.info(`Created new hospital: ${hospitalName} (${newHospital._id})`);
-
+      console.log(`✅ Created new hospital: "${newHospital.name}" (_id: ${newHospital._id})`);
+      
       return newHospital;
-    } catch (error) {
-      logger.error('Error in findOrCreateHospital:', error);
-      throw new Error(`Could not find or create hospital: ${hospitalName}`);
+      
+    } catch (error: any) {
+      console.error('❌ Error in findOrCreateHospital:', error);
+      throw new Error(`Could not find or create hospital: ${hospitalIdentifier}. ${error.message}`);
     }
   }
 

@@ -72,6 +72,82 @@ export class UserController {
     }
   }
 
+  static async editEmergencyContact(req: AuthRequest, res: Response): Promise<Response> {
+    try {
+      const { contactId } = req.params;
+      const { name, phone, relationship } = req.body;
+      
+      if (!req.user) {
+        return ResponseHandler.error(res, 'User not authenticated', 401);
+      }
+      
+      // Validate required fields
+      if (!name && !phone && !relationship) {
+        return ResponseHandler.error(res, 'At least one field (name, phone, or relationship) must be provided for update', 400);
+      }
+      
+      // Find the user first to check if the contact exists
+      const user = await User.findById(req.user._id);
+      if (!user) {
+        return ResponseHandler.error(res, 'User not found', 404);
+      }
+      
+      // Check if the emergency contact exists
+      const contactExists = user.emergencyContacts?.some(
+        contact => contact._id.toString() === contactId
+      );
+      
+      if (!contactExists) {
+        return ResponseHandler.error(res, 'Emergency contact not found', 404);
+      }
+      
+      // Build update object dynamically
+      const updateFields: any = {};
+      
+      if (name !== undefined) {
+        updateFields['emergencyContacts.$.name'] = name;
+      }
+      
+      if (phone !== undefined) {
+        updateFields['emergencyContacts.$.phone'] = phone;
+      }
+      
+      if (relationship !== undefined) {
+        updateFields['emergencyContacts.$.relationship'] = relationship;
+      }
+      
+      // Update the specific contact using positional operator $
+      const updatedUser = await User.findOneAndUpdate(
+        {
+          _id: req.user._id,
+          'emergencyContacts._id': contactId
+        },
+        {
+          $set: updateFields
+        },
+        {
+          new: true,
+          runValidators: true // Ensure validation runs on update
+        }
+      );
+      
+      if (!updatedUser) {
+        return ResponseHandler.error(res, 'Failed to update emergency contact', 400);
+      }
+      
+      return ResponseHandler.success(res, updatedUser, 'Emergency contact updated successfully');
+    } catch (error: any) {
+      logger.error('Edit emergency contact error:', error);
+      
+      // Handle specific error cases
+      if (error.name === 'CastError') {
+        return ResponseHandler.error(res, 'Invalid contact ID format', 400);
+      }
+      
+      return ResponseHandler.error(res, error.message, 400);
+    }
+  }
+
   static async removeEmergencyContact(req: AuthRequest, res: Response): Promise<Response> {
     try {
       if (!req.user) {

@@ -11,6 +11,7 @@ router.use(authenticate);
 // router.put('/profile', UserController.updateProfile);
 
 router.post('/emergency-contacts', UserController.addEmergencyContact); //✅
+router.patch('/emergency-contacts/:contactId', UserController.editEmergencyContact);
 router.delete('/emergency-contacts/:contactId', UserController.removeEmergencyContact); //✅
 router.put('/settings', UserController.updateSettings); //❌
 router.put('/medical-info', UserController.updateMedicalInfo); //❌
