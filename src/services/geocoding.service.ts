@@ -99,8 +99,9 @@ export class GeocodingService {
           if (responder.currentLocation?.coordinates) {
             const [latitude, longitude] = responder.currentLocation.coordinates;
             const distance = GeocodingService.calculateDistance(
-              coordinates.latitude,
               coordinates.longitude,
+              coordinates.latitude,
+              // coordinates.longitude,
               latitude,
               longitude
             );
