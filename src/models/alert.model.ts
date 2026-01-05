@@ -21,6 +21,7 @@ export interface IAlert extends Document {
     };
     staticMapUrl?: string;
   };
+  assignedHospital?: mongoose.Types.ObjectId;
   assignedResponder?: {
     responderId: mongoose.Types.ObjectId;
     assignedAt: Date;
@@ -94,6 +95,11 @@ const AlertSchema: Schema = new Schema({
       placeId: String,
     },
     staticMapUrl: String,
+  },
+  assignedHospital: {
+    type: Schema.Types.ObjectId,
+    ref: 'Hospital',
+    index: true,
   },
   assignedResponder: {
     responderId: {
