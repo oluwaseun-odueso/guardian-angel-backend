@@ -6,22 +6,51 @@ import { AuthRequest } from '../middlewares/auth.middleware';
 
 export class AlertController {
   // Create manual alert (select specific responder)
+  // static async createManualAlert(req: AuthRequest, res: Response): Promise<Response> {
+  //   try {
+  //     if (!req.user) {
+  //       return ResponseHandler.error(res, 'User not authenticated', 401);
+  //     }
+      
+  //     const { responderId, coordinates, accuracy } = req.body;
+      
+  //     if (!responderId || !coordinates || !accuracy) {
+  //       return ResponseHandler.error(res, 'Responder ID, coordinates, and accuracy are required', 400);
+  //     }
+      
+  //     const result = await AlertService.createManualAlert(
+  //       req.user._id.toString(),
+  //       responderId,
+  //       { coordinates, accuracy }
+  //     );
+      
+  //     return ResponseHandler.success(res, result, 'Alert created successfully');
+  //   } catch (error: any) {
+  //     logger.error('Create manual alert error:', error);
+  //     return ResponseHandler.error(res, error.message, 400);
+  //   }
+  // }
+
   static async createManualAlert(req: AuthRequest, res: Response): Promise<Response> {
     try {
       if (!req.user) {
         return ResponseHandler.error(res, 'User not authenticated', 401);
       }
       
-      const { responderId, coordinates, accuracy } = req.body;
+      const { hospitalId, location } = req.body;
       
-      if (!responderId || !coordinates || !accuracy) {
-        return ResponseHandler.error(res, 'Responder ID, coordinates, and accuracy are required', 400);
+      if (!hospitalId) {
+        return ResponseHandler.error(res, 'Hospital ID is required', 400);
+      }
+      
+      if (!location || !location.coordinates) {
+        return ResponseHandler.error(res, 'Location coordinates are required', 400);
       }
       
       const result = await AlertService.createManualAlert(
         req.user._id.toString(),
-        responderId,
-        { coordinates, accuracy }
+        hospitalId, // Changed from responderId to hospitalId
+        location
       );
       
       return ResponseHandler.success(res, result, 'Alert created successfully');
