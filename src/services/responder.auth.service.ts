@@ -37,7 +37,50 @@ export class ResponderAuthService {
       }
 
       // Extract coordinates from currentLocation
-      const [longitude, latitude] = data.currentLocation.coordinates;
+      // const [longitude, latitude] = data.currentLocation.coordinates;
+
+
+      
+
+      let [first, second] = data.currentLocation.coordinates;
+      let latitude, longitude;
+      let mongoCoordinates: [number, number];
+
+      if (Math.abs(first) <= 90 && Math.abs(second) <= 180) {
+      // First looks like latitude, second like longitude
+        if (Math.abs(first) > 90 || Math.abs(second) > 180) {
+          // Actually swapped
+          latitude = second;
+          longitude = first;
+          mongoCoordinates = [first, second]; // Already [lng, lat]
+        } else {
+          // This is [lat, lng], need to swap for MongoDB
+          latitude = first;
+          longitude = second;
+          mongoCoordinates = [second, first]; // Swap to [lng, lat]
+        }
+      } else {
+        // Can't determine, assume already [lng, lat]
+        longitude = first;
+        latitude = second;
+        mongoCoordinates = [first, second];
+      }
+      
+      // Validate coordinates
+      if (latitude < -90 || latitude > 90) {
+        throw new Error(`Invalid latitude: ${latitude}. Must be between -90 and 90`);
+      }
+      if (longitude < -180 || longitude > 180) {
+        throw new Error(`Invalid longitude: ${longitude}. Must be between -180 and 180`);
+      }
+      
+      console.log(`Coordinates: lat=${latitude}, lng=${longitude}, MongoDB format: ${mongoCoordinates}`);
+
+
+
+
+
+
       
       // Step 1: Find or create hospital
       let hospital: IHospital;
