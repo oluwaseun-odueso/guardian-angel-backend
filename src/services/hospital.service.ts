@@ -298,73 +298,73 @@ class HospitalRegistrationService {
   }
 
   // Seed database with known hospitals
-  static async seedHospitals(country: string): Promise<void> {
-    const hospitals = country === 'UK' ? this.getUKHospitals() : this.getNigeriaHospitals();
+  // static async seedHospitals(country: string): Promise<void> {
+  //   const hospitals = country === 'UK' ? this.getUKHospitals() : this.getNigeriaHospitals();
     
-    for (const hospital of hospitals) {
-      const exists = await Hospital.findOne({
-        $or: [
-        //   { googlePlaceId: hospital.googlePlaceId },
-          { name: hospital.name, city: hospital.city }
-        ]
-      });
+  //   for (const hospital of hospitals) {
+  //     const exists = await Hospital.findOne({
+  //       $or: [
+  //       //   { googlePlaceId: hospital.googlePlaceId },
+  //         { name: hospital.name, city: hospital.city }
+  //       ]
+  //     });
 
-      if (!exists) {
-        await Hospital.create({
-          ...hospital,
-          registrationStatus: 'verified',
-          verifiedAt: new Date(),
-          isActive: true,
-          emergencyServices: true,
-        });
-      }
-    }
-  }
+  //     if (!exists) {
+  //       await Hospital.create({
+  //         ...hospital,
+  //         registrationStatus: 'verified',
+  //         verifiedAt: new Date(),
+  //         isActive: true,
+  //         emergencyServices: true,
+  //       });
+  //     }
+  //   }
+  // }
 
-  private static getUKHospitals() {
-    return [
-      {
-        name: 'St Thomas\' Hospital',
-        address: 'Westminster Bridge Rd, London SE1 7EH',
-        coordinates: {
-          type: 'Point',
-          coordinates: [-0.118092, 51.498838]
-        },
-        city: 'London',
-        country: 'UK',
-        emergencyServices: true,
-      },
-      // Add more UK hospitals...
-    ];
-  }
+  // private static getUKHospitals() {
+  //   return [
+  //     {
+  //       name: 'St Thomas\' Hospital',
+  //       address: 'Westminster Bridge Rd, London SE1 7EH',
+  //       coordinates: {
+  //         type: 'Point',
+  //         coordinates: [-0.118092, 51.498838]
+  //       },
+  //       city: 'London',
+  //       country: 'UK',
+  //       emergencyServices: true,
+  //     },
+  //     // Add more UK hospitals...
+  //   ];
+  // }
 
-  private static getNigeriaHospitals() {
-    return [
-      {
-        name: 'University College Hospital Ibadan',
-        address: 'Queen Elizabeth Rd, Ibadan',
-        coordinates: {
-          type: 'Point',
-          coordinates: [3.898, 7.439]
-        },
-        city: 'Ibadan',
-        country: 'Nigeria',
-        emergencyServices: true,
-      },
-      {
-        name: 'Lagos University Teaching Hospital',
-        address: 'Idi-Araba, Lagos',
-        coordinates: {
-          type: 'Point',
-          coordinates: [3.355, 6.519]
-        },
-        city: 'Lagos',
-        country: 'Nigeria',
-        emergencyServices: true,
-      },
-      // Add more Nigeria hospitals...
-    ];
-  }
+  // private static getNigeriaHospitals() {
+  //   return [
+  //     {
+  //       name: 'University College Hospital Ibadan',
+  //       address: 'Queen Elizabeth Rd, Ibadan',
+  //       coordinates: {
+  //         type: 'Point',
+  //         coordinates: [3.898, 7.439]
+  //       },
+  //       city: 'Ibadan',
+  //       country: 'Nigeria',
+  //       emergencyServices: true,
+  //     },
+  //     {
+  //       name: 'Lagos University Teaching Hospital',
+  //       address: 'Idi-Araba, Lagos',
+  //       coordinates: {
+  //         type: 'Point',
+  //         coordinates: [3.355, 6.519]
+  //       },
+  //       city: 'Lagos',
+  //       country: 'Nigeria',
+  //       emergencyServices: true,
+  //     },
+  //     // Add more Nigeria hospitals...
+  //   ];
+  // }
 }
 
 export default HospitalRegistrationService;
