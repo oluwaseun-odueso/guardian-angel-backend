@@ -27,18 +27,28 @@ export interface IUser extends Document {
       email: boolean;
     };
     trustedLocations: Array<{
-      address: { formatted: string; street?: string | undefined; city?: string | undefined; state?: string | undefined; country?: string | undefined; postalCode?: string | undefined; neighborhood?: string | undefined; placeId?: string | undefined; };
+      name: string;
+      address: { 
+        formatted: string; 
+        street?: string | undefined; 
+        city?: string | undefined; 
+        state?: string | undefined; 
+        country?: string | undefined; 
+        postalCode?: string | undefined; 
+        neighborhood?: string | undefined; 
+        placeId?: string | undefined; 
+      };
+      radius: number;
       isHome: boolean;
       isWork: boolean;
       notes: string | undefined;
+      staticMapUrl?: string;
       createdAt: Date;
       _id: any;
-      name: string;
       coordinates: {
         type: 'Point';
         coordinates: [number, number];
       };
-      radius: number;
     }>;
   };
   isActive: boolean;
@@ -150,24 +160,52 @@ const UserSchema: Schema = new Schema({
         default: true,
       },
     },
-    trustedLocations: [{
-      name: String,
+    trustedLocations: [
+      {
+        name: {
+        type: String,
+        required: true,
+      },
       coordinates: {
         type: {
           type: String,
           enum: ['Point'],
           default: 'Point',
         },
-        coordinates: {
-          type: [Number],
-          required: true,
-        },
+        coordinates: [Number], // [longitude, latitude]
+      },
+      address: {
+        formatted: String,
+        street: String,
+        city: String,
+        state: String,
+        country: String,
+        postalCode: String,
+        neighborhood: String,
+        placeId: String,
       },
       radius: {
         type: Number,
-        default: 100,
+        default: 100, // meters
+        min: 10,
+        max: 1000,
       },
-    }],
+      isHome: {
+        type: Boolean,
+        default: false,
+      },
+      isWork: {
+        type: Boolean,
+        default: false,
+      },
+      notes: String,
+      staticMapUrl: String, // Add this field
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+    }
+  ],
   },
   isActive: {
     type: Boolean,
