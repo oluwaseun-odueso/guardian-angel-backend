@@ -126,7 +126,7 @@ export class ResponderAuthService {
         lastPing: new Date(),
       }], { session });
       
-      user.role = 'responder';
+      // user.role = 'responder';
       await user.save({ session });
       
       await session.commitTransaction();
@@ -329,6 +329,8 @@ export class ResponderAuthService {
       const responder = await Responder.findOne({ userId })
         .populate('userId', 'fullName email phone profileImage')
         .lean();
+
+      
       
       if (!responder) {
         throw new Error('Responder not found');
