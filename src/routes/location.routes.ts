@@ -20,6 +20,6 @@ router.get('/current', LocationController.getCurrentLocation);
 
 // Location update endpoints
 router.post('/user', LocationUpdateController.updateUserLocation);
-router.post('/responder', LocationUpdateController.updateResponderLocation);
+// router.post('/responder', LocationUpdateController.updateResponderLocation);
 router.get('/tracking/:alertId', LocationUpdateController.getLiveTracking);
 export default router;
