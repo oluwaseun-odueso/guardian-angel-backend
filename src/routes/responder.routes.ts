@@ -10,7 +10,7 @@ router.use(authenticate);
 
 // Responder registration & profile
 router.post('/register', ResponderAuthController.register); //✅
-router.get('/profile', ResponderAuthController.getProfile);
+router.get('/profile', ResponderAuthController.getProfile); //✅
 router.put('/profile', ResponderAuthController.updateProfile);
 router.get('/stats', ResponderAuthController.getStats);
 router.post('/deactivate', ResponderAuthController.deactivate);
@@ -20,11 +20,11 @@ router.post('/status', ResponderAuthController.updateStatus);
 router.post('/location', ResponderAuthController.updateLocation);
 
 // Alert management for responders
-router.get('/assigned-alerts', ResponderController.getAssignedAlerts);
-router.post('/acknowledge/:alertId', ResponderController.acknowledgeAlert);
-router.post('/cancel/:alertId', ResponderController.cancelAlert);
-router.post('/resolve/:alertId', ResponderController.resolveAlert);
-router.post('/alert-location', ResponderController.updateAlertLocation);
+router.get('/alerts/assigned-alerts', ResponderController.getAssignedAlerts); //✅
+router.post('/alerts/acknowledge/:alertId', ResponderController.acknowledgeAlert); //✅
+router.post('/alerts/cancel/:alertId', ResponderController.cancelAlert); //✅
+router.post('/alerts/resolve/:alertId', ResponderController.resolveAlert);
+router.post('/alerts/alert-location', ResponderController.updateAlertLocation);
 
 export default router;
 

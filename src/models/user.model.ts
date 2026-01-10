@@ -211,38 +211,6 @@ const UserSchema: Schema = new Schema({
     type: Boolean,
     default: true,
   },
-  // lastKnownLocation: {
-  //   type: {
-  //     type: String,
-  //     enum: ['Point'],
-  //     default: 'Point',
-  //   },
-  //   coordinates: {
-  //     type: [Number],
-  //     required: false,
-  //   },
-  //   timestamp: {
-  //     type: Date,
-  //     required: false,
-  //   },
-  //   accuracy: {
-  //     type: Number,
-  //     required: false,
-  //   },
-  //   enrichedData: {
-  //     address: {
-  //       formatted: String,
-  //       street: String,
-  //       city: String,
-  //       state: String,
-  //       country: String,
-  //       postalCode: String,
-  //       neighborhood: String,
-  //     },
-  //     placeId: String,
-  //     staticMapUrl: String,
-  //   },
-  // },
   deviceInfo: {
     batteryLevel: {
       type: Number,
