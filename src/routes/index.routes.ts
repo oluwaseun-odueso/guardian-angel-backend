@@ -6,6 +6,7 @@ import responderRoutes from './responder.routes';
 import geocodingRoutes from './geocoding.routes';
 import locationRoutes from './location.routes';
 import trustedRoutes from './trustedLocation.routes';
+import hospitalRoutes from './hospital.routes';
 
 const router = express.Router();
 
@@ -16,5 +17,6 @@ router.use('/responder', responderRoutes)
 router.use('/geocode', geocodingRoutes)
 router.use('/location', locationRoutes)
 router.use('/trusted-location', trustedRoutes)
+router.use('/hospitals', hospitalRoutes)
 
 export default router;
