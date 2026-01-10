@@ -43,44 +43,44 @@ export class LocationUpdateController {
   }
   
   // Update responder location
-  static async updateResponderLocation(req: AuthRequest, res: Response): Promise<Response> {
-    try {
-      if (!req.user) {
-        return ResponseHandler.error(res, 'User not authenticated', 401);
-      }
+  // static async updateResponderLocation(req: AuthRequest, res: Response): Promise<Response> {
+  //   try {
+  //     if (!req.user) {
+  //       return ResponseHandler.error(res, 'User not authenticated', 401);
+  //     }
       
-      const { coordinates, accuracy, alertId } = req.body;
+  //     const { coordinates, accuracy, alertId } = req.body;
       
-      if (!coordinates || !Array.isArray(coordinates) || coordinates.length !== 2) {
-        return ResponseHandler.error(res, 'Valid coordinates [longitude, latitude] required', 400);
-      }
+  //     if (!coordinates || !Array.isArray(coordinates) || coordinates.length !== 2) {
+  //       return ResponseHandler.error(res, 'Valid coordinates [longitude, latitude] required', 400);
+  //     }
 
-      const [lon, lat] = coordinates;
-      if (typeof lon !== 'number' || typeof lat !== 'number' || 
-          isNaN(lon) || isNaN(lat)) {
-        return ResponseHandler.error(res, 'Coordinates must be valid numbers', 400);
-      }
+  //     const [lon, lat] = coordinates;
+  //     if (typeof lon !== 'number' || typeof lat !== 'number' || 
+  //         isNaN(lon) || isNaN(lat)) {
+  //       return ResponseHandler.error(res, 'Coordinates must be valid numbers', 400);
+  //     }
 
-      const coordinateTuple: [number, number] = [coordinates[0], coordinates[1]];
+  //     const coordinateTuple: [number, number] = [coordinates[0], coordinates[1]];
       
-      // Verify user is a responder
-      if (req.user.role !== 'responder') {
-        return ResponseHandler.error(res, 'Only responders can update responder location', 403);
-      }
+  //     // Verify user is a responder
+  //     if (req.user.role !== 'respondent') {
+  //       return ResponseHandler.error(res, 'Only responders can update responder location', 403);
+  //     }
       
-      const result = await LocationUpdateService.updateResponderLocation({
-        userId: req.user._id.toString(),
-        coordinates: coordinateTuple,
-        accuracy: accuracy || 15,
-        alertId,
-      });
+  //     const result = await LocationUpdateService.updateResponderLocation({
+  //       userId: req.user._id.toString(),
+  //       coordinates: coordinateTuple,
+  //       accuracy: accuracy || 15,
+  //       alertId,
+  //     });
       
-      return ResponseHandler.success(res, result, 'Responder location updated');
-    } catch (error: any) {
-      logger.error('Update responder location error:', error);
-      return ResponseHandler.error(res, error.message, 400);
-    }
-  }
+  //     return ResponseHandler.success(res, result, 'Responder location updated');
+  //   } catch (error: any) {
+  //     logger.error('Update responder location error:', error);
+  //     return ResponseHandler.error(res, error.message, 400);
+  //   }
+  // }
   
   // Get live tracking data for an alert
   static async getLiveTracking(req: AuthRequest, res: Response): Promise<Response> {
