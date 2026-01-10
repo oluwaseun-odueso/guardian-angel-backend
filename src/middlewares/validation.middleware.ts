@@ -36,6 +36,7 @@ export const AuthSchemas = {
   login: Joi.object({
     email: Joi.string().email().required().trim().lowercase(),
     password: Joi.string().required(),
+    loginType: Joi.string().valid('user', 'respondent').required()
   }),
 };
 

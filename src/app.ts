@@ -9,6 +9,7 @@ import database from './config/database';
 import logger from './utils/logger';
 import routes from './routes/index.routes'
 import errorMiddleware from './middlewares/error.middleware';
+import bodyParser from 'body-parser';
 import rateLimitMiddleware from './middlewares/rateLimit.middleware';
 
 // import SocketService from './services/socket.service';
@@ -80,9 +81,12 @@ class Application {
         write: (message: string) => logger.info(message.trim()),
       },
     }));
+
+    this.app.use(bodyParser.json());
+    this.app.use(bodyParser.urlencoded({ extended: true }));
     
-    this.app.use(express.json({ limit: '10mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    // this.app.use(express.json({ limit: '10mb' }));
+    // this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     
     this.app.use(rateLimitMiddleware);
     

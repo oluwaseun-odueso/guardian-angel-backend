@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User, { IUser } from '../models/user.model';
+import Responder, { IResponder } from '../models/responder.model'
 import config from '../config/env';
 import logger from '../utils/logger';
 
@@ -55,27 +56,133 @@ export class AuthService {
     }
   }
 
-  static async login(email: string, password: string): Promise<{ user: IUser; tokens: AuthTokens }> {
-    try {
-      const user = await User.findOne({ email }).select('+password');
+  // static async login(email: string, password: string): Promise<{ user: IUser; tokens: AuthTokens }> {
+  //   try {
+  //     const user = await User.findOne({ email }).select('+password');
       
-      if (!user || !user.isActive) {
-        throw new Error('Invalid credentials or inactive account');
+  //     if (!user || !user.isActive) {
+  //       throw new Error('Invalid credentials or inactive account');
+  //     }
+
+  //     const isPasswordValid = await user.comparePassword(password);
+  //     if (!isPasswordValid) {
+  //       throw new Error('Invalid credentials');
+  //     }
+
+  //     const tokens = this.generateTokens(user);
+
+  //     const userWithoutPassword = user.toObject();
+  //     delete (userWithoutPassword as any).password;
+
+  //     return {
+  //       user: userWithoutPassword as IUser,
+  //       tokens,
+  //     };
+  //   } catch (error: any) {
+  //     logger.error('Login error:', error);
+  //     throw error;
+  //   }
+  // }
+
+  static async login(
+    email: string, 
+    password: string, 
+    loginType: 'user' | 'respondent' // Changed to enum-like type for clarity
+  ): Promise<{ 
+    user: IUser | IResponder; 
+    tokens: AuthTokens;
+    userType: 'user' | 'respondent';
+  }> {
+    try {
+      let user: IUser | IResponder | null = null;
+      let userType: 'user' | 'respondent' = 'user';
+
+      if (loginType === 'user') {
+        // Search in User model
+        const foundUser = await User.findOne({ email }).select('+password');
+        
+        if (!foundUser) {
+          throw new Error('User account not found');
+        }
+        
+        if (!foundUser.isActive) {
+          throw new Error('Account is inactive. Please contact support');
+        }
+        
+        // Verify password
+        const isPasswordValid = await foundUser.comparePassword(password);
+        if (!isPasswordValid) {
+          throw new Error('Invalid credentials');
+        }
+        
+        user = foundUser;
+        userType = 'user';
+        
+      } else if (loginType === 'respondent') {
+        // Search in Responder model
+        const foundResponder = await Responder.findOne({ email })
+          .populate('userId', 'fullName email phone role isActive')
+          .select('+password');
+        
+        if (!foundResponder) {
+          throw new Error('Responder account not found');
+        }
+        
+        if (!foundResponder.isActive || !foundResponder.isVerified) {
+          throw new Error('Responder account is inactive or not verified');
+        }
+        
+        // For responder, we need to check if associated user exists and get password
+        const associatedUser = await User.findById(foundResponder.userId).select('+password');
+        
+        if (!associatedUser) {
+          throw new Error('Associated user account not found');
+        }
+        
+        if (!associatedUser.isActive) {
+          throw new Error('Associated user account is inactive');
+        }
+        
+        // Verify password using the associated user's password
+        const isPasswordValid = await associatedUser.comparePassword(password);
+        if (!isPasswordValid) {
+          throw new Error('Invalid credentials');
+        }
+        
+        user = foundResponder;
+        userType = 'respondent';
+        
+      } else {
+        throw new Error('Invalid login type. Must be "user" or "responder"');
       }
 
-      const isPasswordValid = await user.comparePassword(password);
-      if (!isPasswordValid) {
-        throw new Error('Invalid credentials');
-      }
-
+      // Generate tokens
       const tokens = this.generateTokens(user);
-
+      
+      // Remove password from response
       const userWithoutPassword = user.toObject();
       delete (userWithoutPassword as any).password;
+      
+      // If it's a responder, include user details in the response
+      if (userType === 'respondent') {
+        const responder = userWithoutPassword as IResponder;
+        // Get the populated user details
+        if (responder.userId && typeof responder.userId !== 'string') {
+          responder.userDetails = {
+            fullName: (responder.userId as any).fullName,
+            email: (responder.userId as any).email,
+            phone: (responder.userId as any).phone,
+            role: (responder.userId as any).role,
+          };
+        }
+      }
 
+      console.log(`✅ Login successful: ${userType}=${email}`);
+      
       return {
-        user: userWithoutPassword as IUser,
+        user: userWithoutPassword as IUser | IResponder,
         tokens,
+        userType,
       };
     } catch (error: any) {
       logger.error('Login error:', error);
@@ -83,7 +190,7 @@ export class AuthService {
     }
   }
 
-  static generateTokens(user: IUser): AuthTokens {
+  static generateTokens(user: IUser | IResponder): AuthTokens {
     const payload: TokenPayload = {
       id: user._id.toString(),
       email: user.email,

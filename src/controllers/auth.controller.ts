@@ -23,8 +23,13 @@ export class AuthController {
 
   static async login(req: Request, res: Response): Promise<Response> {
     try {
-      const { email, password } = req.body;
-      const result = await AuthService.login(email, password);
+      const { email, password, loginType } = req.body;
+
+      if (loginType !== 'user' && loginType !== 'respondent') {
+        return ResponseHandler.error(res, 'Login type must be either "user" or "respondent"', 400);
+      }
+
+      const result = await AuthService.login(email, password, loginType);
       
       return ResponseHandler.success(res, result, 'Login successful');
     } catch (error: any) {

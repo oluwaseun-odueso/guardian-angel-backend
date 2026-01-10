@@ -1,9 +1,11 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IResponder extends Document {
+  userDetails: { fullName: string; email: string; phone: string; role: string; };
   userId: mongoose.Types.ObjectId;
   fullName: string;
   email: string;
+  role: 'respondent';
   phone: string;
   hospital: mongoose.Types.ObjectId;
   certifications: string[];
@@ -66,6 +68,12 @@ const ResponderSchema: Schema = new Schema({
   hospital: {
     type: Schema.Types.ObjectId,
     ref: 'Hospital',
+    required: true,
+  },
+  role: {
+    type: String,
+    // enum: ['user', 'responder', 'admin'],
+    default: 'respondent',
     required: true,
   },
   certifications: {
