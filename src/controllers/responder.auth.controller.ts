@@ -2,6 +2,7 @@ import { Response, Request } from 'express';
 import ResponderAuthService from '../services/responder.auth.service';
 import ResponseHandler from '../utils/response';
 import logger from '../utils/logger';
+import { AuthRequest } from '../middlewares/auth.middleware';
 // import { assertResponderRequest } from '../middlewares/responder.auth.middleware';
 // import { ResponderRequest } from '../types/express'
 
@@ -14,10 +15,11 @@ import logger from '../utils/logger';
 
 
 export class ResponderAuthController {
-  static async register(req: Request, res: Response): Promise<Response> {
+  static async register(req: AuthRequest, res: Response): Promise<Response> {
     try {
       // assertUserRequest(req);
 
+      console.log("Requessssssssssssst userrrrrrrrr: ", req.user)
       if (!req.user) {
         return ResponseHandler.error(res, 'User not authenticated', 401);
       }
