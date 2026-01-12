@@ -276,6 +276,55 @@ export class AuthService {
     };
   }
 
+  static generateResponderTokens(responder: IResponder): AuthTokens {
+    const payload: TokenPayload = {
+      id: responder.userId.toString(), // User ID
+      email: responder.email,
+      role: responder.role,
+      userType: 'responder',
+      responderId: responder._id.toString(), // Responder ID
+    };
+
+    // Add hospital ID if available
+    if (responder.hospital) {
+      payload.hospitalId = responder.hospital.toString();
+    }
+
+    const accessTokenOptions: jwt.SignOptions = {
+      expiresIn: config.jwt.expiresIn as jwt.SignOptions['expiresIn'],
+    };
+
+    const refreshTokenOptions: jwt.SignOptions = {
+      expiresIn: config.jwt.refreshExpiresIn as jwt.SignOptions['expiresIn'],
+    };
+
+    const accessToken = jwt.sign(payload, config.jwt.secret, accessTokenOptions);
+    const refreshToken = jwt.sign(payload, config.jwt.refreshSecret, refreshTokenOptions);
+
+    // Calculate expiresIn in seconds
+    let expiresInSeconds = 7 * 24 * 60 * 60;
+    const expiresInString = config.jwt.expiresIn as string;
+    
+    if (expiresInString.includes('d')) {
+      const days = parseInt(expiresInString);
+      expiresInSeconds = days * 24 * 60 * 60;
+    } else if (expiresInString.includes('h')) {
+      const hours = parseInt(expiresInString);
+      expiresInSeconds = hours * 60 * 60;
+    } else if (expiresInString.includes('m')) {
+      const minutes = parseInt(expiresInString);
+      expiresInSeconds = minutes * 60;
+    } else if (expiresInString.includes('s')) {
+      expiresInSeconds = parseInt(expiresInString);
+    }
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: expiresInSeconds,
+    };
+  }
+
   static verifyToken(token: string): TokenPayload {
     return jwt.verify(token, config.jwt.secret) as TokenPayload;
   }
