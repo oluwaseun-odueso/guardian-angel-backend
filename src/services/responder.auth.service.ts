@@ -4,6 +4,8 @@ import User from '../models/user.model';
 import logger from '../utils/logger';
 import HospitalService from './hospital.service';
 import { IHospital } from '@/models/hospital.model';
+import { IResponder } from '../models/responder.model'
+import AuthService from './auth.service';
 
 
 export class ResponderAuthService {
@@ -126,24 +128,72 @@ export class ResponderAuthService {
         lastPing: new Date(),
       }], { session });
       
-      // user.role = 'responder';
+      user.role = 'respondent';
       await user.save({ session });
       
       await session.commitTransaction();
       
       logger.info(`Responder registered: ${userId} - ${user.fullName} at hospital: ${hospital.name}`);
       
-      // Return enriched data
-      const responderData = responder[0].toObject();
+
+
+
+
+
+
+      const createdResponder = await Responder.findById(responder[0]._id)
+      .populate('userId', 'fullName email phone role isActive')
+      .populate('hospital', 'name address city country')
+      .lean();
+    
+      if (!createdResponder) {
+        throw new Error('Failed to retrieve created responder');
+      }
+
+      const tokens = AuthService.generateResponderTokens(createdResponder as IResponder);
+    
+      // Return enriched data with tokens
       return {
-        ...responderData,
-        hospitalDetails: {
-          id: hospital._id,
-          name: hospital.name,
-          city: hospital.city,
-          country: hospital.country
-        }
+        responder: {
+          ...createdResponder,
+          hospitalDetails: {
+            id: hospital._id,
+            name: hospital.name,
+            city: hospital.city,
+            country: hospital.country,
+            address: hospital.address,
+          },
+          userDetails: createdResponder.userId ? {
+            fullName: (createdResponder.userId as any).fullName,
+            email: (createdResponder.userId as any).email,
+            phone: (createdResponder.userId as any).phone,
+            role: (createdResponder.userId as any).role,
+          } : undefined,
+        },
+        tokens,
+        userType: 'responder' as const,
       };
+
+
+
+
+
+
+
+
+
+
+      // Return enriched data
+      // const responderData = responder[0].toObject();
+      // return {
+      //   ...responderData,
+      //   hospitalDetails: {
+      //     id: hospital._id,
+      //     name: hospital.name,
+      //     city: hospital.city,
+      //     country: hospital.country
+      //   }
+      // };
     } catch (error) {
       await session.abortTransaction();
       logger.error('Responder registration error:', error);
@@ -153,80 +203,7 @@ export class ResponderAuthService {
     }
   }
 
-  // static async registerAsResponder(
-  //   userId: string,
-  //   data: {
-  //     hospital: string;
-  //     certifications?: string[];
-  //     experienceYears?: number;
-  //     vehicleType?: 'car' | 'motorcycle' | 'bicycle' | 'foot' | 'ambulance';
-  //     licenseNumber?: string;
-  //     availability?: any;
-  //     maxDistance?: number;
-  //     bio?: string;
-  //     currentLocation: object
-  //   }
-  // ) {
-  //   const session = await mongoose.startSession();
-    
-  //   try {
-  //     session.startTransaction();
-      
-  //     const user = await User.findById(userId).session(session);
-  //     if (!user) {
-  //       throw new Error('User not found');
-  //     }
-      
-  //     const existingResponder = await Responder.findOne({ userId }).session(session);
-  //     if (existingResponder) {
-  //       throw new Error('Already registered as a responder');
-  //     }
 
-  //     const validatedAvailability = data.availability 
-  //     ? this.validateAvailability(data.availability)
-  //     : this.getDefaultAvailability();
-      
-  //     const responder = await Responder.create([{
-  //       userId: user._id,
-  //       fullName: user.fullName,
-  //       email: user.email,
-  //       phone: user.phone,
-  //       hospital: data.hospital,
-  //       certifications: data.certifications || [],
-  //       experienceYears: data.experienceYears || 0,
-  //       vehicleType: data.vehicleType,
-  //       licenseNumber: data.licenseNumber,
-  //       availability: validatedAvailability,
-  //       maxDistance: data.maxDistance || 10,
-  //       bio: data.bio,
-  //       status: 'available',
-  //       rating: 5,
-  //       isActive: true,
-  //       isVerified: true, // Needs admin verification
-  //       currentLocation: data.currentLocation,
-  //       totalAssignments: 0, // Add missing required fields
-  //       successfulAssignments: 0,
-  //       responseTimeAvg: 0,
-  //       lastPing: new Date(),
-  //     }], { session });
-      
-  //     user.role = 'responder';
-  //     await user.save({ session });
-      
-  //     await session.commitTransaction();
-      
-  //     logger.info(`Responder registered: ${userId} - ${user.fullName}`);
-      
-  //     return responder[0];
-  //   } catch (error) {
-  //     await session.abortTransaction();
-  //     logger.error('Responder registration error:', error);
-  //     throw error;
-  //   } finally {
-  //     session.endSession();
-  //   }
-  // }
-  
   static async updateProfile(
     userId: string,
     updateData: {
