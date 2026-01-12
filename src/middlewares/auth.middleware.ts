@@ -26,7 +26,7 @@ export const authenticate = async (
     
     const decoded = jwt.verify(token, config.jwt.secret) as { id: string };
     
-    const user = await User.findById(decoded.id).select('-password');
+    const user = await User.findById(decoded.id).select('-password')
     
     if (!user || !user.isActive) {
       ResponseHandler.unauthorized(res, 'User not found or inactive');
