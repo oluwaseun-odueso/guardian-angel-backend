@@ -6,11 +6,11 @@ import Hospital from '../models/hospital.model'
 
 
 export class HospitalController {
-  static async fetchAllHospitals(req: AuthRequest, res: Response): Promise<Response> {
+  static async fetchAllHospitals(_req: AuthRequest, res: Response): Promise<Response> {
     try {
-        if (!req.user) {
-          return ResponseHandler.error(res, 'User not authenticated', 401);
-        }
+        // if (!req.user) {
+        //   return ResponseHandler.error(res, 'User not authenticated', 401);
+        // }
 
         const hospitals = await Hospital.find()
 
