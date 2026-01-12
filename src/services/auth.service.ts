@@ -3,11 +3,16 @@ import User, { IUser } from '../models/user.model';
 import Responder, { IResponder } from '../models/responder.model'
 import config from '../config/env';
 import logger from '../utils/logger';
+import mongoose from 'mongoose';
 
 export interface TokenPayload {
   id: string;
   email: string;
   role: string;
+  userType: 'user' | 'responder'; // Add this field to distinguish
+  // Optional: Add responder-specific fields if needed
+  responderId?: string;
+  hospitalId?: string;
 }
 
 export interface AuthTokens {
@@ -191,11 +196,50 @@ export class AuthService {
   }
 
   static generateTokens(user: IUser | IResponder): AuthTokens {
+    // const userType = user instanceof (mongoose.model('User') as any) ? 'user' : 'responder';
+
+    // const payload: TokenPayload = {
+    //   id: user._id.toString(),
+    //   email: user.email,
+    //   role: user.role,
+    //   userType: userType,
+    // };
+
+    // if (userType === 'responder') {
+    //   const responder = user as IResponder;
+    //   payload.responderId = responder._id.toString();
+      
+    //   // Add hospital ID if available
+    //   if (responder.hospital) {
+    //     payload.hospitalId = responder.hospital.toString();
+    //   }
+    // }
+
+    // Determine user type
+    const isResponder = 'hospital' in user && 'certifications' in user;
+    const userType = isResponder ? 'responder' : 'user';
+    
     const payload: TokenPayload = {
-      id: user._id.toString(),
+      id: isResponder ? (user as IResponder).userId.toString() : user._id.toString(),
       email: user.email,
       role: user.role,
+      userType: userType as 'user' | 'responder',
     };
+
+    // If it's a responder, add responder-specific data
+    if (isResponder) {
+      const responder = user as IResponder;
+      payload.responderId = responder._id.toString();
+      
+      // Add hospital ID if available
+      if (responder.hospital) {
+        payload.hospitalId = responder.hospital.toString();
+      }
+    }
+
+
+
+    
 
     // Fix: Create proper options object
     const accessTokenOptions: jwt.SignOptions = {
