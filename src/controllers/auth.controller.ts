@@ -1,11 +1,11 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import AuthService from '../services/auth.service';
 import ResponseHandler from '../utils/response';
 import logger from '../utils/logger';
 import { AuthRequest } from '../middlewares/auth.middleware';
 
 export class AuthController {
-  static async register(req: Request, res: Response): Promise<Response> {
+  static async register(req: AuthRequest, res: Response): Promise<Response> {
     try {
       const user = await AuthService.register(req.body);
       
@@ -21,7 +21,7 @@ export class AuthController {
     }
   }
 
-  static async login(req: Request, res: Response): Promise<Response> {
+  static async login(req: AuthRequest, res: Response): Promise<Response> {
     try {
       const { email, password, loginType } = req.body;
 
@@ -55,7 +55,7 @@ export class AuthController {
   //   }
   // }
 
-  static async refreshToken(req: Request, res: Response): Promise<Response> {
+  static async refreshToken(req: AuthRequest, res: Response): Promise<Response> {
     try {
       if (!req.body || typeof req.body !== 'object') {
         return ResponseHandler.error(res, 'Invalid request body', 400);
