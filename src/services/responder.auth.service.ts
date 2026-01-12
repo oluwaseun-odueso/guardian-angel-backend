@@ -330,7 +330,7 @@ export class ResponderAuthService {
         .populate('userId', 'fullName email phone profileImage')
         .lean();
 
-      
+      console.log("This is the responder: ", responder)
       
       if (!responder) {
         throw new Error('Responder not found');
