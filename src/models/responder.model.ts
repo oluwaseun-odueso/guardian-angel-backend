@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IResponder extends Document {
-  userDetails: { fullName: string; email: string; phone: string; role: string; };
+  userDetails?: { fullName: string; email: string; phone: string; role: string; };
   userId: mongoose.Types.ObjectId;
   fullName: string;
   email: string;
