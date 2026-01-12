@@ -3,7 +3,6 @@ import User, { IUser } from '../models/user.model';
 import Responder, { IResponder } from '../models/responder.model'
 import config from '../config/env';
 import logger from '../utils/logger';
-import mongoose from 'mongoose';
 
 export interface TokenPayload {
   id: string;
@@ -239,7 +238,7 @@ export class AuthService {
 
 
 
-    
+
 
     // Fix: Create proper options object
     const accessTokenOptions: jwt.SignOptions = {
