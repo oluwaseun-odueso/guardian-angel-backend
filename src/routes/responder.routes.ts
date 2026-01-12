@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import ResponderAuthController from '../controllers/responder.auth.controller';
 import ResponderController from '../controllers/responder.controller';
-// import { authenticate } from '../middlewares/auth.middleware';
+import { authenticate } from '../middlewares/auth.middleware';
 
 
 
@@ -11,13 +11,15 @@ import { authenticateResponder } from '../middlewares/responder.auth.middleware'
 
 
 
-
 const router = Router();
+
+
+router.post('/register', authenticate, ResponderAuthController.register); //✅
+
 
 router.use(authenticateResponder);
 
 // Responder registration & profile
-router.post('/register', ResponderAuthController.register); //✅
 router.get('/profile', ResponderAuthController.getProfile); //✅
 router.put('/profile', ResponderAuthController.updateProfile);
 router.get('/stats', ResponderAuthController.getStats);
